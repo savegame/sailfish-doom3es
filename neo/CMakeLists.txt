@@ -30,7 +30,7 @@ endif()
 
 option(LINUX_RELEASE_BINS "Set RPATH to \$ORIGIN/libs/ for Linux binary releases" OFF)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/sys/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sys/cmake")
 
 if(LINUX_RELEASE_BINS)
 	message(STATUS "Setting RPATH to \$ORIGIN/libs/ so you can put dependencies in there")
@@ -196,11 +196,26 @@ if (SDL2)
 	if(APPLE OR WIN32)
 		set(SDL2_BUILDING_LIBRARY TRUE)
 	endif()
-	# find_package(SDL2 REQUIRED)
-	set(SDL2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/../sdl2/include)
-	set(SDL2_LIBRARY 
-		${PROJECT_SOURCE_DIR}/../sdl2/libSDL2.a
-		"pthread")
+	
+	if(SAILFISHOS)
+		if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+			set(SDL2_CONFIG_INCLUDE_SUFFIX "debug")
+			set(SDL2_LIB_SUFFIX "d")
+		else()
+			set(SDL2_CONFIG_INCLUDE_SUFFIX "relese")
+			set(SDL2_LIB_SUFFIX "")
+		endif()
+		set(SDL2_INCLUDE_DIR 
+			${CMAKE_BINARY_DIR}/SDL2/include
+			${CMAKE_BINARY_DIR}/SDL2/include-config-${SDL2_CONFIG_INCLUDE_SUFFIX})
+		set(SDL2_LIBRARY 
+			${CMAKE_BINARY_DIR}/SDL2/libSDL2${SDL2_LIB_SUFFIX}.a
+			"EGL"
+			"pthread"
+			"wayland-client")
+	else()
+		find_package(SDL2 REQUIRED)
+	endif()
 
 	include_directories(${SDL2_INCLUDE_DIR})
 	set(SDLx_LIBRARY ${SDL2_LIBRARY})
@@ -218,7 +233,6 @@ if(REPRODUCIBLE_BUILD)
 	# don't use __DATE__ and __TIME__ macros so builds are reproducible
 	add_definitions(-DID_REPRODUCIBLE_BUILD)
 endif()
-
 
 find_package(CURL QUIET)
 if(CURL_FOUND)
@@ -403,9 +417,10 @@ endif()
 if(GNUINSTALLDIRS MATCHES "NOTFOUND")
 	set(CMAKE_INSTALL_BINDIR		"bin"
 		CACHE PATH "user executables (bin)")
-	set(CMAKE_INSTALL_LIBDIR		"lib${LIB_SUFFIX}"
+	set(CMAKE_INSTALL_LIBDIR		"share/${DHEWM3BINARY}/lib"
 		CACHE PATH "object code libraries (lib${LIB_SUFFIX})")
-	set(CMAKE_INSTALL_DATAROOTDIR	"share"
+	message("CMake CMAKE_INSTALL_LIBDIR : " ${CMAKE_INSTALL_LIBDIR})
+	set(CMAKE_INSTALL_DATAROOTDIR	"share/${DHEWM3BINARY}"
 		CACHE PATH "read-only architecture-independent data root (share)")
 	set(CMAKE_INSTALL_DATADIR		"${CMAKE_INSTALL_DATAROOTDIR}"
 		CACHE PATH "read-only architecture-independent data (DATAROOTDIR)")
@@ -420,12 +435,18 @@ if(GNUINSTALLDIRS MATCHES "NOTFOUND")
 	endforeach()
 endif()
 
-set(bindir		"${CMAKE_INSTALL_FULL_BINDIR}")
-set(libdir		"${CMAKE_INSTALL_FULL_LIBDIR}/dhewm3")
-set(datadir		"${CMAKE_INSTALL_FULL_DATADIR}/dhewm3")
+if(SAILFISHOS)
+	set(bindir   "/usr/bin")
+	set(datadir  "/usr/share/${DHEWM3BINARY}")
+	set(libdir   "${datadir}/lib")
+else()
+	set(bindir   "${CMAKE_INSTALL_FULL_BINDIR}")
+	set(libdir   "${CMAKE_INSTALL_FULL_LIBDIR}/dhewm3")
+	set(datadir  "${CMAKE_INSTALL_FULL_DATADIR}/dhewm3")
+endif()
 
 configure_file(
-	"${CMAKE_SOURCE_DIR}/config.h.in"
+	"${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
 	"${CMAKE_BINARY_DIR}/config.h"
 )
 
@@ -520,7 +541,7 @@ set(src_renderer_glsl
 
 # globs all the headers from ${PATHPREFIX}/ and adds them to ${SRCLIST}
 function(add_globbed_headers SRCLIST PATHPREFIX)
-	file(GLOB_RECURSE tmp_hdrs RELATIVE "${CMAKE_SOURCE_DIR}" "${PATHPREFIX}/*.h")
+	file(GLOB_RECURSE tmp_hdrs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${PATHPREFIX}/*.h")
 	set(${SRCLIST} ${tmp_hdrs} ${${SRCLIST}} PARENT_SCOPE)
 endfunction()
 
@@ -1013,8 +1034,8 @@ if(AROS)
 	)
 elseif(APPLE)
 	set(OSX_RESOURCE_FILES
-		"${CMAKE_SOURCE_DIR}/sys/osx/Doom3.icns"
-		"${CMAKE_SOURCE_DIR}/sys/osx/Doom 3.rsrc"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/osx/Doom3.icns"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/osx/Doom 3.rsrc"
 	)
 
 	set_source_files_properties(${OSX_RESOURCE_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
@@ -1067,7 +1088,7 @@ elseif(WIN32)
 	else()
 		# adding both .rc files breaks the build, but I think it only contains the icon
 		# and doom.rc also contains that (+icons for editor etc, AFAIK), so this is fine
-		set(src_sys_core ${src_sys_core} "${CMAKE_SOURCE_DIR}/sys/win32/rc/dhewm3.rc" )
+		set(src_sys_core ${src_sys_core} "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/dhewm3.rc" )
 	endif()
 
 else()
@@ -1087,7 +1108,7 @@ else()
 endif()
 
 include_directories(${CMAKE_BINARY_DIR})
-include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(idlib STATIC ${src_idlib})
 if (AROS)
@@ -1123,7 +1144,7 @@ if(CORE)
 	set_target_properties(${DHEWM3BINARY} PROPERTIES COMPILE_DEFINITIONS "__DOOM_DLL__;${TOOLS_DEFINES}")
 	set_target_properties(${DHEWM3BINARY} PROPERTIES LINK_FLAGS "${ldflags}")
 	if(LIPSTICK_FBO)
-		set_target_properties(${DHEWM3BINARY} PROPERTIES CXX_FLAGS "-DUSE_LIPSTICK_FBO")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_LIPSTICK_FBO")
 		message("Use lipstick fbo")
 	endif()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/sys/osx/Info.plist)
@@ -1133,7 +1154,7 @@ if(CORE)
 		${OPENAL_LIBRARY}
 		${CURL_LIBRARY}
 		${ZLIB_LIBRARY}
-		${SDL2_LIBRARY}
+		${SDLx_LIBRARY}
 		${sys_libs}
 		"GLESv2"
 	)
@@ -1189,7 +1210,7 @@ if(BASE)
 	
 	set_target_properties(base PROPERTIES PREFIX "")
 	set_target_properties(base PROPERTIES COMPILE_DEFINITIONS "GAME_DLL")
-	target_include_directories(base PRIVATE "${CMAKE_SOURCE_DIR}/game")
+	target_include_directories(base PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/game")
 	set_target_properties(base PROPERTIES LINK_FLAGS "${ldflags}")
 	set_target_properties(base PROPERTIES INSTALL_NAME_DIR "@executable_path")
 	if (AROS)
@@ -1217,7 +1238,7 @@ if(D3XP)
 	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX neo FILES ${src_d3xp})
 	set_target_properties(d3xp PROPERTIES PREFIX "")
 	set_target_properties(d3xp PROPERTIES COMPILE_DEFINITIONS "GAME_DLL;_D3XP;CTF")
-	target_include_directories(d3xp PRIVATE "${CMAKE_SOURCE_DIR}/d3xp")
+	target_include_directories(d3xp PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/d3xp")
 	set_target_properties(d3xp PROPERTIES LINK_FLAGS "${ldflags}")
 	set_target_properties(d3xp PROPERTIES INSTALL_NAME_DIR "@executable_path")
 	if (AROS)

@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
+project(ru.sashikknox.dhewm3)
+
+message("Configure SDL2:")
+set(LIB_SUFFIX "")
+set(PULSEAUDIO ON)
+set(SDL_STATIC ON)
+set(VIDEO_WAYLAND ON)
+set(VIDEO_X11 OFF)
+set(WAYLAND_LIBDECOR OFF)
+set(SDL_OSS OFF)
+add_subdirectory(${CMAKE_SOURCE_DIR}/SDL2)
+
+message("Configure DHEWM3:")
+set(LIPSTICK_FBO ON)
+set(DHEWM3BINARY ${CMAKE_PROJECT_NAME})
+set(SAILFISHOS ON)
+add_subdirectory(${CMAKE_SOURCE_DIR}/neo)

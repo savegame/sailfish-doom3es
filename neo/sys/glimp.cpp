@@ -334,6 +334,15 @@ try_again:
 			// creating the window succeeded, so adjust r_multiSamples to the value that was actually used
 			parms.multiSamples = multisamples;
 			r_multiSamples.SetInteger(multisamples);
+			int result = SDL_GameControllerAddMappingsFromFile("/home/defaultuser/.local/share/dhewm3/gamecontrollerdb.txt");
+			common->Warning("SDL Game controller: %i", result);
+
+			if (!SDL_WasInit(SDL_INIT_JOYSTICK)) {
+				if (SDL_Init(SDL_INIT_JOYSTICK) == -1)
+					common->Warning("SDL Cannnot init Joystick");
+				else 
+					common->Warning("SDL Joystick Initialized");
+			}
 		}
 
 		/* Check if we're really in the requested display mode. There is

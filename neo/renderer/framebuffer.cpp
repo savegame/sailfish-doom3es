@@ -18,6 +18,7 @@ static GLuint m_framebuffer_texture;
 static GLuint m_positionLoc;
 static GLuint m_texCoordLoc;
 static GLuint m_samplerLoc;
+static GLuint m_coordMaxLoc;
 
 static GLuint r_program;
 
@@ -118,28 +119,42 @@ static void createShaders (void)
 			   v_texCoord = a_texCoord;                                    \n \
 			}                                                              \n \
 			";
-
+#ifdef LIPSICK_HACK
 	const GLchar *fragSource = \
 			"precision mediump float;                                \n  \
 			varying vec2 v_texCoord;                                 \n  \
 			uniform sampler2D s_texture;                             \n  \
 			void main()                                              \n  \
 			{                                                        \n  \
-				gl_FragColor =  texture2D( s_texture, v_texCoord );  \n  \
-				//gl_FragColor =  vec4( 0.8, 0.5, 0.9, 1.0 );  \n  \
+				gl_FragColor = texture2D( s_texture, v_texCoord );  \n  \
 			}                                                        \n  \
 			";
+#else
+	const GLchar *fragSource = \
+			"precision highp float;                                     \n \
+			varying vec2 v_texCoord;                                      \n \
+			uniform sampler2D s_texture;                                  \n \
+			uniform vec4 v_coordMax;                                      \n \
+			void main()                                                   \n \
+			{                                                             \n \
+				gl_FragColor = texture2D( s_texture, vec2(v_texCoord.y * v_coordMax[3],   \n \
+				                          v_coordMax[0] - v_texCoord.x * v_coordMax[2]) ); \n \
+			}                                                             \n \
+			";
+#endif
 
 	r_program = createProgram(vertSource, fragSource);
 
 	glUseProgram(r_program);
 
-   // get attrib locations
+	// get attrib locations
 	m_positionLoc = glGetAttribLocation(r_program, "a_position");
 	m_texCoordLoc = glGetAttribLocation(r_program, "a_texCoord");
 	m_samplerLoc  = glGetUniformLocation(r_program, "s_texture");
+	m_coordMaxLoc = glGetUniformLocation(r_program, "v_coordMax");
 
 	glUniform1i(m_samplerLoc, 0);
+	glUniform4f(m_coordMaxLoc, 0.0, 0.0, 0.0, 0.0);
 }
 
 
@@ -198,7 +213,7 @@ void R_InitFrameBuffer()
 		// Need separate Stencil buffer
 		glGenRenderbuffers(1, &m_stencilbuffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, m_stencilbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, m_framebuffer_width, m_framebuffer_height);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, m_framebuffer_width, m_framebuffer_height);
 	}
 
 	createShaders();
@@ -293,6 +308,7 @@ void R_FrameBufferEnd()
 
 	// Set the sampler texture unit to 0
 	glUniform1i(m_samplerLoc, 0);
+	glUniform4f(m_coordMaxLoc, tmax, smax, tmax / smax, smax / tmax);
 
 	glViewport (0, 0, glConfig.vidWidthReal, glConfig.vidHeightReal );
 

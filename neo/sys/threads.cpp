@@ -148,7 +148,7 @@ void Sys_EnterCriticalSection(int index) {
 	assert(index >= 0 && index < MAX_CRITICAL_SECTIONS);
 
 	if (SDL_LockMutex(mutex[index]) != 0)
-		common->Error("ERROR: SDL_LockMutex failed\n");
+		common->Error("SDL_LockMutex failed: %s\n", SDL_GetError());
 }
 
 /*
@@ -160,7 +160,7 @@ void Sys_LeaveCriticalSection(int index) {
 	assert(index >= 0 && index < MAX_CRITICAL_SECTIONS);
 
 	if (SDL_UnlockMutex(mutex[index]) != 0)
-		common->Error("ERROR: SDL_UnlockMutex failed\n");
+		common->Error("SDL_UnlockMutex failed: %s\n", SDL_GetError());
 }
 
 /*

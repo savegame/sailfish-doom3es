@@ -369,6 +369,7 @@ private:
 	buttonState_t	toggled_zoom;
 
 	int				buttonState[UB_MAX_BUTTONS];
+	int				joyAxisState[MAX_JOYSTICK_AXIS];
 	bool			keyState[K_LAST_KEY];
 
 	int				inhibitCommands;	// true when in console or menu locally
@@ -689,6 +690,8 @@ void idUsercmdGenLocal::JoystickMove( void ) {
 	if ( !ButtonState( UB_STRAFE ) ) {
 		viewangles[YAW] += anglespeed * in_yawSpeed.GetFloat() * joystickAxis[AXIS_SIDE];
 		viewangles[PITCH] += anglespeed * in_pitchSpeed.GetFloat() * joystickAxis[AXIS_FORWARD];
+		cmd.rightmove = idMath::ClampChar( cmd.rightmove + joyAxisState[AXIS_SIDE]);
+		cmd.forwardmove = idMath::ClampChar( cmd.forwardmove + joyAxisState[AXIS_FORWARD]);
 	} else {
 		cmd.rightmove = idMath::ClampChar( cmd.rightmove + joystickAxis[AXIS_SIDE] );
 		cmd.forwardmove = idMath::ClampChar( cmd.forwardmove + joystickAxis[AXIS_FORWARD] );
@@ -877,6 +880,7 @@ void idUsercmdGenLocal::Clear( void ) {
 	// clears all key states
 	memset( buttonState, 0, sizeof( buttonState ) );
 	memset( keyState, false, sizeof( keyState ) );
+	memset( joyAxisState, 0, sizeof( buttonState ) );
 
 	inhibitCommands = false;
 
@@ -1040,6 +1044,18 @@ idUsercmdGenLocal::Joystick
 */
 void idUsercmdGenLocal::Joystick( void ) {
 	memset( joystickAxis, 0, sizeof( joystickAxis ) );
+
+	int numEvents = Sys_PollJoystickInputEvents();
+	if ( numEvents && !ButtonState( UB_STRAFE ) ) {
+		int key;
+		int state;
+		for( int i = 0; i < numEvents; i++ ) {
+			if (Sys_ReturnJoystickInputEvent( i, key, state )) {
+				joyAxisState[key] = state;
+			}
+		}
+	}
+	Sys_EndJoystickInputEvents();
 }
 
 /*
@@ -1105,7 +1121,7 @@ usercmd_t idUsercmdGenLocal::GetDirectUsercmd( void ) {
 	Keyboard();
 
 	// process the system joystick events
-	Joystick();
+ 	Joystick();
 
 	// create the usercmd
 	MakeCurrent();

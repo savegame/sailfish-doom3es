@@ -10,6 +10,7 @@ project(dhewm3)
 # TARGET_MONO
 # SETUP
 # SDK				-D_D3SDK
+# LIPSTICK_FBO		-DUSE_LIPSTICK_FBO
 
 # don't add these as options, but document them?
 # IDNET_HOST		-DIDNET_HOST=\\"%s\\"' % IDNET_HOST
@@ -42,7 +43,9 @@ else()
 	set(CMAKE_SKIP_RPATH ON CACHE BOOL "Skip RPATH" FORCE)
 endif()
 
+if(NOT DHEWM3BINARY)
 set(DHEWM3BINARY "dhewm3")
+endif()
 
 include(CheckCXXCompilerFlag)
 include(GNUInstallDirs OPTIONAL RESULT_VARIABLE GNUINSTALLDIRS)
@@ -193,7 +196,12 @@ if (SDL2)
 	if(APPLE OR WIN32)
 		set(SDL2_BUILDING_LIBRARY TRUE)
 	endif()
-	find_package(SDL2 REQUIRED)
+	# find_package(SDL2 REQUIRED)
+	set(SDL2_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/../sdl2/include)
+	set(SDL2_LIBRARY 
+		${PROJECT_SOURCE_DIR}/../sdl2/libSDL2.a
+		"pthread")
+
 	include_directories(${SDL2_INCLUDE_DIR})
 	set(SDLx_LIBRARY ${SDL2_LIBRARY})
 else()
@@ -1114,6 +1122,10 @@ if(CORE)
 
 	set_target_properties(${DHEWM3BINARY} PROPERTIES COMPILE_DEFINITIONS "__DOOM_DLL__;${TOOLS_DEFINES}")
 	set_target_properties(${DHEWM3BINARY} PROPERTIES LINK_FLAGS "${ldflags}")
+	if(LIPSTICK_FBO)
+		set_target_properties(${DHEWM3BINARY} PROPERTIES CXX_FLAGS "-DUSE_LIPSTICK_FBO")
+		message("Use lipstick fbo")
+	endif()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/sys/osx/Info.plist)
 
 	target_link_libraries(${DHEWM3BINARY}
@@ -1121,7 +1133,7 @@ if(CORE)
 		${OPENAL_LIBRARY}
 		${CURL_LIBRARY}
 		${ZLIB_LIBRARY}
-		${SDLx_LIBRARY}
+		${SDL2_LIBRARY}
 		${sys_libs}
 		"GLESv2"
 	)

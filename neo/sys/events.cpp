@@ -27,6 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #include <SDL.h>
+#include <SDL_gamecontroller.h>
 
 #include "sys/platform.h"
 #include "idlib/containers/List.h"
@@ -67,6 +68,8 @@ const char *_in_kbdNames[] = {
 #endif
 	"english", "french", "german", "italian", "spanish", "turkish", "norwegian", "brazilian", NULL
 };
+
+bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res);
 
 static idCVar in_kbd("in_kbd", _in_kbdNames[0], CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_NOCHEAT, "keyboard layout", _in_kbdNames, idCmdSystem::ArgCompletion_String<_in_kbdNames> );
 // TODO: I'd really like to make in_ignoreConsoleKey default to 1, but I guess there would be too much confusion :-/
@@ -110,6 +113,81 @@ struct mouse_poll_t {
 
 static idList<kbd_poll_t> kbd_polls;
 static idList<mouse_poll_t> mouse_polls;
+static idList<mouse_poll_t> joystick_polls;
+
+static SDL_Joystick *joystick = NULL;
+static SDL_GameController *controller = NULL;
+
+static int joy_axis_state[] = {0,0,0,0};
+
+#define JOYSTICK_DEAD_ZONE 8000
+#define JOYAXIS_MAX 32768
+// // analog axes
+// #define JOY_LEFT_STICK_XAXIS    0
+// #define JOY_LEFT_STICK_YAXIS    1
+// #define JOY_RIGHT_STICK_XAXIS   2
+// #define JOY_RIGHT_STICK_YAXIS   3
+// #define JOY_LEFT_SHOULDER       4
+// #define JOY_RIGHT_SHOULDER      5
+// // buttons
+// #define JOY_CROSS               0
+// #define JOY_CIRCLE              1
+// #define JOY_SQUARE              2
+// #define JOY_TRIANGLE            3
+
+// #define JOY_SELECT              4
+// #define JOY_PSBUTTON            5
+// #define JOY_START               6
+
+// #define JOY_LEFT_STICK          7
+// #define JOY_RIGHT_STICK         8
+// #define JOY_LEFT_TRIGGER        9
+// #define JOY_RIGHT_TRIGGER       10
+
+// #define JOY_UP                  11
+// #define JOY_DOWN                12
+// #define JOY_LEFT                13
+// #define JOY_RIGHT               14
+
+// #define JOY_TOUCHPAD_BUTTON     15
+
+// sailfish analog axes
+#define JOY_LEFT_STICK_XAXIS    0
+#define JOY_LEFT_STICK_YAXIS    1
+#define JOY_RIGHT_STICK_XAXIS   2
+#define JOY_RIGHT_STICK_YAXIS   5
+#define JOY_LEFT_SHOULDER       3
+#define JOY_RIGHT_SHOULDER      4
+// sailfish os buttons 
+#define JOY_SQUARE              0
+#define JOY_CROSS               1
+#define JOY_CIRCLE              2
+#define JOY_TRIANGLE            3
+
+#define JOY_SELECT              8
+#define JOY_PSBUTTON            12
+#define JOY_START               9
+
+#define JOY_LEFT_STICK          10
+#define JOY_RIGHT_STICK         11
+#define JOY_LEFT_TRIGGER        4
+#define JOY_RIGHT_TRIGGER       7
+
+#define JOY_UP                  6
+#define JOY_DOWN                5
+#define JOY_LEFT                13
+#define JOY_RIGHT               14
+
+#define JOY_HUP                  1
+#define JOY_HDOWN                4
+#define JOY_HLEFT                8
+#define JOY_HRIGHT               2
+
+#define JOY_TOUCHPAD_BUTTON     15
+
+
+#define JOY_LOOK_SENSE 30.0f
+#define JOY_AXIS_RMOUSE(value) (int)(((float)value / (float)(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE)) * JOY_LOOK_SENSE);
 
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 // for utf8ToISO8859_1() - used for non-ascii text input and Sys_GetLocalizedScancodeName()
@@ -523,7 +601,7 @@ void Sys_InitInput() {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	const char* grabKeyboardEnv = SDL_getenv(SDL_HINT_GRAB_KEYBOARD);
 	if ( grabKeyboardEnv ) {
-		common->Printf( "The SDL_GRAB_KEYBOARD environment variable is set, setting the in_grabKeyboard CVar to the same value (%s)\n", grabKeyboardEnv );
+		common->Printf("The SDL_GRAB_KEYBOARD environment variable is set, setting the in_grabKeyboard CVar to the same value (%s)\n", grabKeyboardEnv );
 		in_grabKeyboard.SetString( grabKeyboardEnv );
 	} else {
 		in_grabKeyboard.SetModified();
@@ -597,7 +675,7 @@ static void initConsoleKeyMapping() {
 			for( int i=1; i<numMappings; ++i ) {
 				if ( consoleKeyMappings[i].key == keycode ) {
 					consoleKeyMappingIdx = i;
-					common->Printf( "Detected keyboard layout as \"%s\"\n", consoleKeyMappings[i].langName );
+					common->Printf("Detected keyboard layout as \"%s\"\n", consoleKeyMappings[i].langName );
 					break;
 				}
 			}
@@ -697,6 +775,15 @@ sysEvent_t Sys_GetEvent() {
 	}
 #endif
 
+	if (joystick == NULL && controller == NULL && SDL_NumJoysticks() > 0) {
+		if (SDL_IsGameController(0)) {
+			controller = SDL_GameControllerOpen(0);
+		} else {
+			joystick = SDL_JoystickOpen(0);
+		}
+		common->Printf("Handle joystick 0;\n");
+	}
+
 	static byte c = 0;
 
 	if (c) {
@@ -739,6 +826,27 @@ sysEvent_t Sys_GetEvent() {
 			}
 
 			continue; // handle next event
+#ifdef USE_LIPSTICK_FBO
+		case SDL_DISPLAYEVENT:
+			if( ev.display.event != SDL_DISPLAYEVENT_ORIENTATION )
+				continue;
+			common->Warning("SDL_DISPLAYEVENT_ORIENTATION: %i", ev.display.data1);
+			// if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE 
+			//     || ev.display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED ) 
+			// {
+			// 	sdlwSetRealOrientation((SDL_DisplayOrientation)ev.display.data1);
+				
+			// 	if( (int)(r_rotaterender->value) == 1 ) {
+			// 		if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE )
+			// 			sdlwSetOrientation(SDL_ORIENTATION_LANDSCAPE_FLIPPED);
+			// 		else
+			// 			sdlwSetOrientation(SDL_ORIENTATION_LANDSCAPE);
+			// 	}
+			// 	else
+			// 		sdlwSetOrientation((SDL_DisplayOrientation)ev.display.data1);
+			// }
+			break;
+#endif
 #else
 		case SDL_ACTIVEEVENT:
 			{
@@ -957,7 +1065,6 @@ sysEvent_t Sys_GetEvent() {
 			res.evValue2 = ev.button.state == SDL_PRESSED ? 1 : 0;
 
 			return res;
-
 		case SDL_QUIT:
 			PushConsoleEvent("quit");
 			return res_none;
@@ -974,13 +1081,207 @@ sysEvent_t Sys_GetEvent() {
 				continue; // handle next event
 			}
 		default:
+			if (Sys_joypadEvent(&ev, res) )
+				return res;
 			// ok, I don't /really/ care about unknown SDL events. only uncomment this for debugging.
 			// common->Warning("unknown SDL event 0x%x", ev.type);
 			continue; // handle next event
 		}
 	}
 
+	if (joystick || controller) {
+		if (joy_axis_state[JOY_RIGHT_STICK_XAXIS] != 0) {
+			mouse_polls.Append(mouse_poll_t(M_DELTAX, joy_axis_state[JOY_RIGHT_STICK_XAXIS]));
+		}
+		if (joy_axis_state[JOY_RIGHT_STICK_YAXIS] != 0) {
+			mouse_polls.Append(mouse_poll_t(M_DELTAY, joy_axis_state[JOY_RIGHT_STICK_YAXIS]));
+		}
+	}
+
 	return res_none;
+}
+
+/*
+================
+Sys_joypadEvent
+================
+*/
+bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
+	bool result = false;
+	static int LEFT_SHOULDER = 0;
+	static int RIGHT_SHOULDER = 1;
+	static int joy_shoulder_state[] = {0,0};
+	static const int JOYSTICK_025_PRESS = JOYAXIS_MAX * 0.25;
+	
+	switch (event->type)
+	{
+	case SDL_CONTROLLERAXISMOTION:    /**< Game controller axis motion */
+		common->Printf("ControllerEvent: SDL_CONTROLLERAXISMOTION axis: %i", event->caxis.axis);
+		break;
+	case SDL_CONTROLLERBUTTONDOWN:    /**< Game controller button pressed */
+		// SDL_CONTROLLER_BUTTON_A;
+		common->Printf("ControllerEvent: SDL_CONTROLLERBUTTONDOWN button: %i", event->cbutton.button);
+		break;
+	case SDL_CONTROLLERBUTTONUP:      /**< Game controller button released */
+		common->Printf("ControllerEvent: SDL_CONTROLLERBUTTONUP button: %i", event->cbutton.button);
+		break;
+	case SDL_CONTROLLERDEVICEADDED:   /**< A new Game controller has been inserted into the system */
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEADDED");
+		break;
+	case SDL_CONTROLLERDEVICEREMOVED: /**< An opened Game controller has been removed */
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMOVED");
+		break;
+	case SDL_CONTROLLERDEVICEREMAPPED:/**< The controller mapping was updated */
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMAPPED");
+		break;
+	case SDL_CONTROLLERTOUCHPADDOWN:  /**< Game controller touchpad was touched */
+		// common->Printf("ControllerEvent: SDL_CONTROLLERTOUCHPADDOWN");
+		break;
+	case SDL_CONTROLLERTOUCHPADMOTION:/**< Game controller touchpad finger was moved */
+		// common->Printf("ControllerEvent: SDL_CONTROLLERTOUCHPADMOTION");
+		break;
+	case SDL_CONTROLLERTOUCHPADUP:    /**< Game controller touchpad finger was lifted */
+		// common->Printf("ControllerEvent: SDL_CONTROLLERTOUCHPADUP");
+		break;
+	case SDL_CONTROLLERSENSORUPDATE:  /**< Game controller sensor was updated */
+		common->Printf("ControllerEvent: SDL_CONTROLLERSENSORUPDATE %i : %f", event->csensor.sensor, event->csensor.data);
+		break;
+	case SDL_JOYAXISMOTION:          /**< Joystick axis motion */
+		//Motion on controller 0
+		// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i", event->jaxis.axis, event->jaxis.value);
+		if (event->jaxis.axis == JOY_RIGHT_STICK_YAXIS) {
+			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+			joy_axis_state[JOY_RIGHT_STICK_YAXIS] = JOY_AXIS_RMOUSE(value);
+		} else if (event->jaxis.axis == JOY_RIGHT_STICK_XAXIS) {
+			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+			joy_axis_state[JOY_RIGHT_STICK_XAXIS] = JOY_AXIS_RMOUSE(value);
+		} else if (event->jaxis.axis == JOY_LEFT_STICK_XAXIS) {
+			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
+			joy_axis_state[JOY_LEFT_STICK_XAXIS] = (coef > 1.0 ? 1.0 : coef) * 127;
+			joystick_polls.Append(mouse_poll_t(AXIS_SIDE, joy_axis_state[JOY_LEFT_STICK_XAXIS]));
+		} else if (event->jaxis.axis == JOY_LEFT_STICK_YAXIS) {
+			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
+			joy_axis_state[JOY_LEFT_STICK_YAXIS] = -(coef > 1.0 ? 1.0 : coef) * 127;
+			joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, joy_axis_state[JOY_LEFT_STICK_YAXIS]));
+		} else if (event->jaxis.axis == JOY_RIGHT_SHOULDER) {
+			int pressed = (event->jaxis.value > (JOYSTICK_DEAD_ZONE - JOYAXIS_MAX)) ? 1 : 0;
+			// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i pressed %i", event->jaxis.axis, event->jaxis.value, pressed);
+			if (joy_shoulder_state[RIGHT_SHOULDER] != pressed) {
+				joy_shoulder_state[RIGHT_SHOULDER] = pressed;
+				res.evType = SE_KEY;
+				res.evValue = K_MOUSE1;
+				res.evValue2 = pressed;
+				mouse_polls.Append(mouse_poll_t(M_ACTION1, pressed));
+				result = true;
+			}
+		} else if (event->jaxis.axis == JOY_LEFT_SHOULDER) {
+			int pressed = (event->jaxis.value > (JOYSTICK_DEAD_ZONE - JOYAXIS_MAX)) ? 1 : 0;
+			// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i pressed %i", event->jaxis.axis, event->jaxis.value, pressed);
+			if (joy_shoulder_state[LEFT_SHOULDER] != pressed) {
+				joy_shoulder_state[LEFT_SHOULDER] = pressed;
+				res.evType = SE_KEY;
+				res.evValue = K_MOUSE2;
+				res.evValue2 = pressed;
+				mouse_polls.Append(mouse_poll_t(M_ACTION2, pressed));
+				result = true;
+			}
+		} else if ( abs(event->jaxis.value) > JOYSTICK_DEAD_ZONE) {
+			common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i", event->jaxis.axis, event->jaxis.value);
+		}
+		break;
+	case SDL_JOYBALLMOTION:          /**< Joystick trackball motion */
+		common->Printf("JoyEvent: SDL_JOYBALLMOTION\n");
+		break;
+	case SDL_JOYHATMOTION:           /**< Joystick hat position change */
+		if (event->jhat.hat != 0) {
+			common->Printf("JoyEvent: SDL_JOYHATMOTION hat: %i value %i", event->jhat.hat, event->jhat.value);
+			break;
+		}
+		switch(event->jhat.value) {
+		case JOY_HLEFT:
+		case JOY_HRIGHT:
+			// if (event->type != SDL_JOYBUTTONDOWN)
+			// 		break;
+			res.evValue = event->jhat.value == JOY_HRIGHT ? K_MWHEELUP : K_MWHEELDOWN;
+			res.evValue2 = 1;
+			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->jhat.value == JOY_HRIGHT ? 1 : -1));
+			break;
+		default:
+			common->Printf("JoyEvent: SDL_JOYHATMOTION hat: %i value %i", event->jhat.hat, event->jhat.value);
+		}
+		break;
+	case SDL_JOYBUTTONDOWN:          /**< Joystick button pressed */
+	case SDL_JOYBUTTONUP:            /**< Joystick button released */
+		res.evType = SE_KEY;
+		result = true;
+		switch(event->jbutton.button) {
+		case JOY_LEFT: //Wheel down
+		case JOY_RIGHT: //Wheel Up
+			if (event->type != SDL_JOYBUTTONDOWN)
+				break;
+			res.evValue = event->jbutton.button == JOY_RIGHT ? K_MWHEELUP : K_MWHEELDOWN;
+			res.evValue2 = 1;
+			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->jbutton.button == JOY_RIGHT ? 1 : -1));
+			break;
+		case JOY_CIRCLE: // R - reaload
+			res.evValue = SDLK_r;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		case JOY_TRIANGLE: // F - flashlight
+			res.evValue = SDLK_f;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		case JOY_SELECT: // Tab - Show PDA
+			res.evValue = K_TAB;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		case JOY_START: // ESC - Open/Close menu
+			res.evValue = K_ESCAPE;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		case JOY_CROSS: // SPACE - Jump
+			res.evValue = K_SPACE;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		case JOY_RIGHT_STICK: // C - Crounch
+			res.evValue = SDLK_c;
+			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
+			break;
+		default:
+			result = false;
+			common->Printf("JoyEvent: %s %i", (event->type == SDL_JOYBUTTONDOWN ? "SDL_JOYBUTTONDOWN" : "SDL_JOYBUTTONUP"), event->jbutton.button);
+		}
+		break;
+	case SDL_JOYDEVICEADDED:         /**< A new joystick has been inserted into the system */
+		common->Printf("JoyEvent: SDL_JOYDEVICEADDED\n");
+		if (!joystick && !controller) {
+			common->Printf("JoyEvent: Try handle %i joystick.n", event->jdevice.which);
+			if (SDL_IsGameController(event->jdevice.which)) {
+				controller = SDL_GameControllerOpen(event->jdevice.which);
+			} else {
+				joystick = SDL_JoystickOpen(event->jdevice.which);
+			}
+		}
+		break;
+	case SDL_JOYDEVICEREMOVED:       /**< An opened joystick has been removed */
+		common->Printf("JoyEvent: SDL_JOYDEVICEREMOVED\n");
+		break;
+	case SDL_JOYBATTERYUPDATED:      /**< Joystick battery level change */
+		common->Printf("JoyEvent: SDL_JOYBATTERYUPDATED: %i", event->jbattery.level);
+		break;
+	default:
+		common->Printf("unknown SDL event 0x%x", event->type);
+		break;
+	}
+	return result;
 }
 
 /*
@@ -1069,12 +1370,12 @@ void Sys_GenerateEvents() {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		SDL_SetHint( SDL_HINT_GRAB_KEYBOARD, in_grabKeyboard.GetString() );
 		if ( in_grabKeyboard.GetBool() ) {
-			common->Printf( "in_grabKeyboard: Will grab the keyboard if mouse is grabbed, so global keyboard-shortcuts (like Alt-Tab or the Windows key) will *not* work\n" );
+			common->Printf("in_grabKeyboard: Will grab the keyboard if mouse is grabbed, so global keyboard-shortcuts (like Alt-Tab or the Windows key) will *not* work\n" );
 		} else {
-			common->Printf( "in_grabKeyboard: Will *not* grab the keyboard if mouse is grabbed, so global keyboard-shortcuts (like Alt-Tab) will still work\n" );
+			common->Printf("in_grabKeyboard: Will *not* grab the keyboard if mouse is grabbed, so global keyboard-shortcuts (like Alt-Tab) will still work\n" );
 		}
 #else
-		common->Printf( "Note: SDL1.2 doesn't support in_grabKeyboard (it's always grabbed if mouse is grabbed)\n" );
+		common->Printf("Note: SDL1.2 doesn't support in_grabKeyboard (it's always grabbed if mouse is grabbed)\n" );
 #endif
 		in_grabKeyboard.ClearModified();
 	}
@@ -1113,6 +1414,38 @@ Sys_EndKeyboardInputEvents
 */
 void Sys_EndKeyboardInputEvents() {
 	kbd_polls.SetNum(0, false);
+}
+
+/*
+================
+Sys_PollJoystickInputEvents
+================
+*/
+int Sys_PollJoystickInputEvents() {
+	return joystick_polls.Num();
+}
+
+/*
+================
+Sys_ReturnJoystickInputEvent
+================
+*/
+int Sys_ReturnJoystickInputEvent(const int n, int &action, int &value) {
+	if (n >= joystick_polls.Num())
+		return 0;
+
+	action = joystick_polls[n].action;
+	value = joystick_polls[n].value;
+	return 1;
+}
+
+/*
+================
+Sys_EndJoystickInputEvents
+================
+*/
+void Sys_EndJoystickInputEvents() {
+	joystick_polls.SetNum(0, false);
 }
 
 /*

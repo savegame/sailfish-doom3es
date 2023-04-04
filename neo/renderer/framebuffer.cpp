@@ -4,6 +4,9 @@ GPL3
 */
 #include "renderer/tr_local.h"
 #include "renderer/VertexCache.h"
+#ifdef USE_LIPSTICK_FBO
+#include <SDL_video.h>
+#endif
 
 
 idCVar r_framebufferFilter( "r_framebufferFilter", "0", CVAR_RENDERER | CVAR_BOOL, "Image filter when using the framebuffer. 0 = Nearest, 1 = Linear" );
@@ -18,7 +21,9 @@ static GLuint m_framebuffer_texture;
 static GLuint m_positionLoc;
 static GLuint m_texCoordLoc;
 static GLuint m_samplerLoc;
+#ifdef USE_LIPSTICK_FBO
 static GLuint m_coordMaxLoc;
+#endif
 
 static GLuint r_program;
 
@@ -119,7 +124,20 @@ static void createShaders (void)
 			   v_texCoord = a_texCoord;                                    \n \
 			}                                                              \n \
 			";
-#ifdef LIPSICK_HACK
+#ifdef USE_LIPSTICK_FBO
+	const GLchar *fragSource = \
+			"precision highp float;                                       \n \
+			varying vec2 v_texCoord;                                      \n \
+			uniform sampler2D s_texture;                                  \n \
+			uniform vec4 v_coordMax;                                      \n \
+			void main()                                                   \n \
+			{                                                             \n \
+				gl_FragColor = texture2D( s_texture, vec2(                \n \
+					v_coordMax[1] + v_texCoord.y * v_coordMax[3],         \n \
+					v_coordMax[0] + v_texCoord.x * v_coordMax[2]) );      \n \
+			}                                                             \n \
+			";
+#else
 	const GLchar *fragSource = \
 			"precision mediump float;                                \n  \
 			varying vec2 v_texCoord;                                 \n  \
@@ -128,18 +146,6 @@ static void createShaders (void)
 			{                                                        \n  \
 				gl_FragColor = texture2D( s_texture, v_texCoord );  \n  \
 			}                                                        \n  \
-			";
-#else
-	const GLchar *fragSource = \
-			"precision highp float;                                     \n \
-			varying vec2 v_texCoord;                                      \n \
-			uniform sampler2D s_texture;                                  \n \
-			uniform vec4 v_coordMax;                                      \n \
-			void main()                                                   \n \
-			{                                                             \n \
-				gl_FragColor = texture2D( s_texture, vec2(v_texCoord.y * v_coordMax[3],   \n \
-				                          v_coordMax[0] - v_texCoord.x * v_coordMax[2]) ); \n \
-			}                                                             \n \
 			";
 #endif
 
@@ -151,10 +157,12 @@ static void createShaders (void)
 	m_positionLoc = glGetAttribLocation(r_program, "a_position");
 	m_texCoordLoc = glGetAttribLocation(r_program, "a_texCoord");
 	m_samplerLoc  = glGetUniformLocation(r_program, "s_texture");
+#ifdef USE_LIPSTICK_FBO
 	m_coordMaxLoc = glGetUniformLocation(r_program, "v_coordMax");
-
-	glUniform1i(m_samplerLoc, 0);
 	glUniform4f(m_coordMaxLoc, 0.0, 0.0, 0.0, 0.0);
+#endif
+	glUniform1i(m_samplerLoc, 0);
+
 }
 
 
@@ -308,8 +316,17 @@ void R_FrameBufferEnd()
 
 	// Set the sampler texture unit to 0
 	glUniform1i(m_samplerLoc, 0);
-	glUniform4f(m_coordMaxLoc, tmax, smax, tmax / smax, smax / tmax);
-
+#ifdef USE_LIPSTICK_FBO
+	switch(GLimp_GetWindowOrientation()) {
+	case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+		glUniform4f(m_coordMaxLoc, 0, smax, tmax / smax, - smax / tmax);
+		break;
+	case SDL_ORIENTATION_LANDSCAPE:
+	default:
+		glUniform4f(m_coordMaxLoc, tmax, 0, - tmax / smax, smax / tmax);
+		break;
+	}
+#endif
 	glViewport (0, 0, glConfig.vidWidthReal, glConfig.vidHeightReal );
 
 	glDisable(GL_BLEND);

@@ -1113,6 +1113,11 @@ const int GRAB_HIDECURSOR	= (1 << 1);
 const int GRAB_RELATIVEMOUSE = (1 << 2);
 
 void GLimp_GrabInput(int flags);
+
+#ifdef USE_LIPSTICK_FBO
+void GLimp_SetWindowOrientation(int orientation);
+int GLimp_GetWindowOrientation();
+#endif
 /*
 ====================================================================
 

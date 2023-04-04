@@ -18,6 +18,11 @@ project(dhewm3)
 # LIBC_MALLOC		-DUSE_LIBC_MALLOC=0
 # ID_NOLANADDRESS	-DID_NOLANADDRESS
 
+if(SAILFISHOS) 
+set(LIPSTICK_FBO ON)
+set(IMGUI_TOUCHSCREEN ON)
+endif()
+
 # fallback for cmake versions without add_compile_options
 if(NOT COMMAND add_compile_options)
 	function(add_compile_options)
@@ -1145,7 +1150,16 @@ if(CORE)
 	set_target_properties(${DHEWM3BINARY} PROPERTIES LINK_FLAGS "${ldflags}")
 	if(LIPSTICK_FBO)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_LIPSTICK_FBO")
-		message("Use lipstick fbo")
+		message("Define USE_LIPSTICK_FBO")
+	endif()
+	if(IMGUI_TOUCHSCREEN) 
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_TOUCHSCREEN")
+		set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/imgui)
+		include_directories(
+			${IMGUI_DIR}
+			${IMGUI_DIR}/backends)
+		set(IMGUI_LIBRARY ${CMAKE_BINARY_DIR}/imgui/libimgui.a)
+		message("Define IMGUI_TOUCHSCREEN")
 	endif()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/sys/osx/Info.plist)
 
@@ -1155,6 +1169,7 @@ if(CORE)
 		${CURL_LIBRARY}
 		${ZLIB_LIBRARY}
 		${SDLx_LIBRARY}
+		${IMGUI_LIBRARY}
 		${sys_libs}
 		"GLESv2"
 	)

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.19)
 project(ru.sashikknox.dhewm3)
 
 message("Configure SDL2:")
@@ -10,6 +10,9 @@ set(VIDEO_X11 OFF)
 set(WAYLAND_LIBDECOR OFF)
 set(SDL_OSS OFF)
 add_subdirectory(${CMAKE_SOURCE_DIR}/SDL2)
+
+message("Configure imgui:")
+add_subdirectory(${CMAKE_SOURCE_DIR}/imgui)
 
 message("Configure DHEWM3:")
 set(LIPSTICK_FBO ON)

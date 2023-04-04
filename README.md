@@ -1,3 +1,11 @@
+# SailfishOS Port
+
+ - [X] Added Joypad support (bindings are tested with DualShock4 + Xperia 10iii SFOS 4.5)  
+ - [X] Added statically linked SDL2 (patched for SailfishOS lipstick compositor)  
+ - [X] Added framebuffer transformation for landscape mode in SailfishOS  
+ - [ ] Added dbus MCE call for disable screen blanking, while game is running
+ - [ ] Added imgui for use it in touch screen controls.
+
 # D3ES
 
 This repo is an update and clean up of the awesome D3WASM project (https://github.com/gabrielcuvillier/d3wasm) which brought GLES2 rendering to Dhewm3 (https://github.com/dhewm/dhewm3).
@@ -16,8 +24,6 @@ New options:
 **r_framebufferWidth, r_framebufferHeight** - Set on command line to render to a framebuffer of this size E.g: `+set r_framebufferWidth 320 +set r_framebufferHeight 240`
 
 **r_maxFps** - Limit framerate
-
-
 
 # ABOUT
 

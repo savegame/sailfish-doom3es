@@ -29,6 +29,12 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "renderer/tr_local.h"
 
+#ifdef IMGUI_TOUCHSCREEN
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#endif
+
 frameData_t		*frameData;
 backEndState_t	backEnd;
 
@@ -340,8 +346,45 @@ const void	RB_SwapBuffers( const void *data ) {
 	if ( r_finish.GetBool() ) {
 		qglFinish();
 	}
-
 	R_FrameBufferEnd();
+
+	// Start the Dear ImGui frame
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplSDL2_NewFrame();
+	ImGui::NewFrame();
+	ImGuiIO& io = ImGui::GetIO();
+
+	{
+		ImGui::Begin("ImGui Demo"); // Create a window called "Hello, world!" and append into it.
+
+		// // ComboBox
+		// if (ImGui::BeginCombo("Resolution", resolutions_preview.c_str())) {
+		// 	int item_index = 0;
+		// 	for (std::string item_name : items_resolution) {
+		// 		const bool is_selected = item_idx_resolution == item_index;
+		// 		if (ImGui::Selectable(item_name.c_str(), is_selected)) {
+		// 			item_idx_resolution = item_index;
+		// 			resolutions_preview = item_name;
+		// 		}
+		// 		item_index++;
+		// 		if (is_selected)
+		// 			ImGui::SetItemDefaultFocus();
+		// 	}
+		// 	ImGui::EndCombo();
+		// }
+		ImGui::Button("Hello GUI");
+
+		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::End();
+	}
+
+	// Rendering
+	ImGui::Render();
+	glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+	// glClearColor(1, 1, 1, 1);
+	// glClear(GL_COLOR_BUFFER_BIT);
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	// SDL_GL_SwapWindow(window);
 
 	GLimp_SwapBuffers();
 

@@ -61,6 +61,12 @@ If you have questions concerning this license or the applicable additional terms
 #define SDLK_PRINTSCREEN SDLK_PRINT
 #endif
 
+#ifdef IMGUI_TOUCHSCREEN
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#endif
+
 // NOTE: g++-4.7 doesn't like when this is static (for idCmdSystem::ArgCompletion_String<kbdNames>)
 const char *_in_kbdNames[] = {
 #if SDL_VERSION_ATLEAST(2, 0, 0) // auto-detection is only available for SDL2
@@ -797,6 +803,9 @@ sysEvent_t Sys_GetEvent() {
 
 	// loop until there is an event we care about (will return then) or no more events
 	while(SDL_PollEvent(&ev)) {
+#ifdef IMGUI_TOUCHSCREEN
+		ImGui_ImplSDL2_ProcessEvent(&ev);
+#endif
 		switch (ev.type) {
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		case SDL_WINDOWEVENT:

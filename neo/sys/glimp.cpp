@@ -34,6 +34,12 @@ If you have questions concerning this license or the applicable additional terms
 #include <wayland-client-protocol.h>
 #endif
 
+#ifdef IMGUI_TOUCHSCREEN
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#endif
+
 #include "sys/platform.h"
 #include "framework/Licensee.h"
 
@@ -615,6 +621,26 @@ try_again:
 		return false;
 	}
 
+#ifdef IMGUI_TOUCHSCREEN
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsLight();
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplSDL2_InitForOpenGL(window, context);
+	ImGui_ImplOpenGL3_Init("#version 100");
+
+	ImGuiStyle * style = &ImGui::GetStyle();
+	style->ScaleAllSizes(5.0f);
+	io.FontGlobalScale = 5.0f;
+#endif
+
 	return true;
 }
 
@@ -635,7 +661,12 @@ GLimp_Shutdown
 */
 void GLimp_Shutdown() {
 	common->Printf("Shutting down OpenGL subsystem\n");
-
+#ifdef IMGUI_TOUCHSCREEN
+	// Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+#endif
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	if (context) {
 		SDL_GL_DeleteContext(context);

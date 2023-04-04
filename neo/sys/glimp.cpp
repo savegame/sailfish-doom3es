@@ -28,6 +28,12 @@ If you have questions concerning this license or the applicable additional terms
 
 #include <SDL.h>
 
+#ifdef USE_LIPSTICK_FBO
+#include <SDL_video.h>
+#include <SDL_syswm.h>
+#include <wayland-client-protocol.h>
+#endif
+
 #include "sys/platform.h"
 #include "framework/Licensee.h"
 
@@ -105,6 +111,10 @@ static SDL_GLContext context = NULL;
 static SDL_Surface *window = NULL;
 #define SDL_WINDOW_OPENGL SDL_OPENGL
 #define SDL_WINDOW_FULLSCREEN SDL_FULLSCREEN
+#endif
+
+#ifdef USE_LIPSTICK_FBO
+static SDL_DisplayOrientation windowOrientation = SDL_ORIENTATION_LANDSCAPE;
 #endif
 
 static void SetSDLIcon()
@@ -343,6 +353,10 @@ try_again:
 				else 
 					common->Warning("SDL Joystick Initialized");
 			}
+
+			#ifdef USE_LIPSTICK_FBO
+			GLimp_SetWindowOrientation(SDL_ORIENTATION_LANDSCAPE);
+			#endif
 		}
 
 		/* Check if we're really in the requested display mode. There is
@@ -756,3 +770,46 @@ void GLimp_GrabInput(int flags) {
 	SDL_WM_GrabInput( (flags & GRAB_RELATIVEMOUSE) ? SDL_GRAB_ON : SDL_GRAB_OFF );
 #endif
 }
+
+#ifdef USE_LIPSTICK_FBO
+void GLimp_SetWindowOrientation(int orientation)
+{
+	if (!window) {
+		common->Warning("GLimp_SetWindowOrientation called without window");
+		return;
+	}
+
+	struct SDL_SysWMinfo wmInfo;
+	SDL_VERSION(&wmInfo.version);
+	if (!SDL_GetWindowWMInfo(window, &wmInfo)) {
+		common->Error("Cant set window orientation for SailfishOS");		
+		return;
+	}
+	
+	switch (orientation) {
+	case SDL_ORIENTATION_LANDSCAPE:
+		wl_surface_set_buffer_transform(wmInfo.info.wl.surface, WL_OUTPUT_TRANSFORM_90);
+		windowOrientation = static_cast<SDL_DisplayOrientation>(orientation);
+		break;
+	case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+		wl_surface_set_buffer_transform(wmInfo.info.wl.surface, WL_OUTPUT_TRANSFORM_270);
+		windowOrientation = static_cast<SDL_DisplayOrientation>(orientation);
+		break;
+	case SDL_ORIENTATION_PORTRAIT:
+		wl_surface_set_buffer_transform(wmInfo.info.wl.surface, WL_OUTPUT_TRANSFORM_NORMAL);
+		break;
+	case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+		wl_surface_set_buffer_transform(wmInfo.info.wl.surface, WL_OUTPUT_TRANSFORM_180);
+		break;
+	default:
+	case SDL_ORIENTATION_UNKNOWN:
+		wl_surface_set_buffer_transform(wmInfo.info.wl.surface, WL_OUTPUT_TRANSFORM_90);
+		break;
+	}
+}
+
+int GLimp_GetWindowOrientation()
+{
+	return windowOrientation;
+}
+#endif

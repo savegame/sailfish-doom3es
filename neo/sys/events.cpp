@@ -831,20 +831,10 @@ sysEvent_t Sys_GetEvent() {
 			if( ev.display.event != SDL_DISPLAYEVENT_ORIENTATION )
 				continue;
 			common->Warning("SDL_DISPLAYEVENT_ORIENTATION: %i", ev.display.data1);
-			// if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE 
-			//     || ev.display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED ) 
-			// {
-			// 	sdlwSetRealOrientation((SDL_DisplayOrientation)ev.display.data1);
-				
-			// 	if( (int)(r_rotaterender->value) == 1 ) {
-			// 		if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE )
-			// 			sdlwSetOrientation(SDL_ORIENTATION_LANDSCAPE_FLIPPED);
-			// 		else
-			// 			sdlwSetOrientation(SDL_ORIENTATION_LANDSCAPE);
-			// 	}
-			// 	else
-			// 		sdlwSetOrientation((SDL_DisplayOrientation)ev.display.data1);
-			// }
+			if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE 
+			    || ev.display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED ) {
+				GLimp_SetWindowOrientation((SDL_DisplayOrientation)ev.display.data1);
+			}
 			break;
 #endif
 #else

@@ -36,6 +36,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #ifdef IMGUI_TOUCHSCREEN
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 #endif
@@ -637,8 +638,11 @@ try_again:
 	ImGui_ImplOpenGL3_Init("#version 100");
 
 	ImGuiStyle * style = &ImGui::GetStyle();
-	style->ScaleAllSizes(5.0f);
-	io.FontGlobalScale = 5.0f;
+	float scale_factor = 1.0f; // setup this scale factor inside framebuffer setting
+	style->ScaleAllSizes(scale_factor);
+	io.FontGlobalScale = scale_factor;
+
+	// TODO: create ImGui interface 
 #endif
 
 	return true;

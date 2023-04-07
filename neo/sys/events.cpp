@@ -63,8 +63,10 @@ If you have questions concerning this license or the applicable additional terms
 
 #ifdef IMGUI_TOUCHSCREEN
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include <functional>
 #endif
 
 // NOTE: g++-4.7 doesn't like when this is static (for idCmdSystem::ArgCompletion_String<kbdNames>)
@@ -90,6 +92,41 @@ static idCVar in_grabKeyboard("in_grabKeyboard", "0", CVAR_SYSTEM | CVAR_ARCHIVE
 static bool in_relativeMouseMode = true;
 // set in Sys_GetEvent() on window focus gained/lost events
 static bool in_hasFocus = true;
+#define MAX_TOUCH_FINGERS 10
+
+enum ImGui_TouchItem {
+	TouchItem_ESC,
+	TouchItem_Fire,
+	TouchItem_Reload,
+	TouchItem_Flashlight,
+	TouchItem_Jump,
+	TouchItem_Crounch,
+	TouchItem_WeaponNext,
+	TouchItem_WeaponPrev,
+	TouchItem_PDA,
+	TouchItem_LeftSide,
+	TouchItem_RightSide,
+	TouchItem_Count
+};
+
+static struct imgui_touch_state_t {
+	int fingerId;
+	ImGuiWindow *window;
+	ImVec2 press_pos;
+	std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)> handler;
+
+	imgui_touch_state_t() {
+		fingerId = -1;
+		window = NULL;
+	}
+
+	imgui_touch_state_t(int tid, ImGuiWindow *w) {
+		fingerId = tid;
+		window = w;
+	}
+} touch_fingers[TouchItem_Count];
+
+static const sysEvent_t default_res_none = { SE_NONE, 0, 0, 0, NULL };
 
 struct kbd_poll_t {
 	int key;
@@ -579,6 +616,12 @@ static void PushConsoleEvent(const char *s) {
 	SDL_PushEvent(&event);
 }
 
+static void ResetTouchFingerState() {
+	for (int i = 0; i < TouchItem_Count; i++) {
+		touch_fingers[i].fingerId = -1;
+	}
+}
+
 /*
 =================
 Sys_InitInput
@@ -614,6 +657,42 @@ void Sys_InitInput() {
 	}
 #else // SDL1.2 doesn't support this
 	in_grabKeyboard.ClearModified();
+#endif
+
+#ifdef IMGUI_TOUCHSCREEN
+	// nind touch screen handlers
+	touch_fingers[TouchItem_LeftSide].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERUP) {
+			joystick_polls.Append(mouse_poll_t(AXIS_SIDE, 0));
+			joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, 0));
+			return default_res_none;
+		}
+		int side_state = (float)(current_pos.x - touch_fingers[TouchItem_LeftSide].press_pos.x) * 3.5f;
+		int forward_state = (float)(current_pos.y - touch_fingers[TouchItem_LeftSide].press_pos.y) * 3.5f;
+		joystick_polls.Append(mouse_poll_t(AXIS_SIDE, side_state));
+		joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, -forward_state));
+		return default_res_none;
+	});
+	touch_fingers[TouchItem_RightSide].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		(void)ev;
+		mouse_polls.Append(mouse_poll_t(M_DELTAX, relative_pos.x * 5));
+		mouse_polls.Append(mouse_poll_t(M_DELTAY, relative_pos.y * 5));
+		return default_res_none;
+	});
+	touch_fingers[TouchItem_ESC].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION)
+			return default_res_none;
+		sysEvent_t res = {};
+		res.evType = SE_KEY;
+		res.evValue = K_ESCAPE;
+		res.evValue2 = ev.type == SDL_FINGERDOWN ? 1 : 0;
+		kbd_polls.Append(kbd_poll_t(K_ESCAPE, ev.type == SDL_FINGERDOWN));
+		ResetTouchFingerState();
+		return res;
+	});
 #endif
 }
 
@@ -757,10 +836,8 @@ Sys_GetEvent
 */
 sysEvent_t Sys_GetEvent() {
 	SDL_Event ev;
-	sysEvent_t res = { };
+	sysEvent_t res = default_res_none;
 	int key;
-
-	static const sysEvent_t res_none = { SE_NONE, 0, 0, 0, NULL };
 
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 	static char s[SDL_TEXTINPUTEVENT_TEXT_SIZE] = {0};
@@ -875,7 +952,7 @@ sysEvent_t Sys_GetEvent() {
 			if (ev.key.keysym.sym == SDLK_RETURN && (ev.key.keysym.mod & KMOD_ALT) > 0) {
 				cvarSystem->SetCVarBool("r_fullscreen", !renderSystem->IsFullScreen());
 				PushConsoleEvent("vid_restart");
-				return res_none;
+				return default_res_none;
 			}
 
 			// fall through
@@ -984,22 +1061,106 @@ sysEvent_t Sys_GetEvent() {
 			continue;
 #endif
 
-		case SDL_MOUSEMOTION:
-			if ( in_relativeMouseMode ) {
-				res.evType = SE_MOUSE;
-				res.evValue = ev.motion.xrel;
-				res.evValue2 = ev.motion.yrel;
-
-				mouse_polls.Append(mouse_poll_t(M_DELTAX, ev.motion.xrel));
-				mouse_polls.Append(mouse_poll_t(M_DELTAY, ev.motion.yrel));
+		case SDL_MOUSEMOTION: {
+			ImVec2 mouse_pos;
+			if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
+				mouse_pos.x = (1.0 - (float)ev.motion.y / glConfig.vidHeightReal) * glConfig.vidWidth;
+				mouse_pos.y = (float)ev.motion.x / glConfig.vidWidthReal * glConfig.vidHeight;
 			} else {
-				res.evType = SE_MOUSE_ABS;
-				res.evValue = ev.motion.x;
-				res.evValue2 = ev.motion.y;
+				mouse_pos.x = (float)ev.motion.y / glConfig.vidHeightReal * glConfig.vidWidth;
+				mouse_pos.y = (1.0 - (float)ev.motion.x / glConfig.vidWidthReal) * glConfig.vidHeight;
 			}
 
-			return res;
+			if ( in_relativeMouseMode ) {
+#ifdef IMGUI_TOUCHSCREEN
+				continue;
+#endif
+				res.evType = SE_MOUSE;
+#ifdef USE_LIPSTICK_FBO
+				if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
+					res.evValue = -ev.motion.yrel;
+					res.evValue2 = ev.motion.xrel;
+				} else {
+					res.evValue = ev.motion.yrel;
+					res.evValue2 = -ev.motion.xrel;
+				}
+#else
+				res.evValue = ev.motion.xrel;
+				res.evValue2 = ev.motion.yrel;
+#endif
+				mouse_polls.Append(mouse_poll_t(M_DELTAX, res.evValue));
+				mouse_polls.Append(mouse_poll_t(M_DELTAY, res.evValue2));
+			} else {
+				res.evType = SE_MOUSE_ABS;
+#ifdef USE_LIPSTICK_FBO
+				res.evValue = mouse_pos.x;
+				res.evValue2 = mouse_pos.y;
+#else
+				res.evValue = ev.motion.x;
+				res.evValue2 = ev.motion.y;
+#endif
+			}
 
+#if IMGUI_TOUCHSCREEN
+			ImGuiIO& io = ImGui::GetIO();
+			io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+#endif
+			return res;
+		}
+#if IMGUI_TOUCHSCREEN
+		case SDL_FINGERMOTION:
+		case SDL_FINGERDOWN:
+		case SDL_FINGERUP:
+			{
+				res.evType = SE_NONE;
+				if (!touch_fingers[TouchItem_LeftSide].window) {
+					touch_fingers[TouchItem_LeftSide].window = ImGui::FindWindowByName("left_side_window");
+					touch_fingers[TouchItem_RightSide].window = ImGui::FindWindowByName("right_side_window");
+					touch_fingers[TouchItem_ESC].window = ImGui::FindWindowByName("key_esc");
+				}
+
+				ImVec2 touch_pos;
+				ImVec2 rel_pos;
+				bool any_contains = false;
+				if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
+					touch_pos.x = (1.0f - ev.tfinger.y) * glConfig.vidWidth;
+					touch_pos.y = ev.tfinger.x * glConfig.vidHeight;
+					rel_pos.x = -ev.tfinger.dy * glConfig.vidWidth * 0.5;
+					rel_pos.y = ev.tfinger.dx * glConfig.vidHeight * 0.5;
+				} else {
+					touch_pos.x = ev.tfinger.y * glConfig.vidWidth;
+					touch_pos.y = (1.0f - ev.tfinger.x) * glConfig.vidHeight;
+					rel_pos.x = ev.tfinger.dy * glConfig.vidWidth * 0.5;
+					rel_pos.y = -ev.tfinger.dx * glConfig.vidHeight * 0.5;
+				}
+
+				for (int i = 0; i < TouchItem_Count; i++) {
+					if (!touch_fingers[i].window)
+						continue;
+					bool contains = touch_fingers[i].window->Rect().Contains(touch_pos);
+					if (ev.type == SDL_FINGERDOWN && touch_fingers[i].fingerId == -1 && contains) {
+						touch_fingers[i].fingerId = ev.tfinger.fingerId;
+						touch_fingers[i].press_pos = touch_pos;
+						any_contains = contains;
+					}
+					if (touch_fingers[i].fingerId == ev.tfinger.fingerId) {
+						if (ev.type == SDL_FINGERUP)
+							touch_fingers[i].fingerId = -1;
+						if (touch_fingers[i].handler) 
+							res = touch_fingers[i].handler(touch_pos, rel_pos, ev);
+						break;
+					}
+				}
+
+				if (any_contains) {
+					ImGuiIO& io = ImGui::GetIO();
+					io.AddMousePosEvent(touch_pos.x, touch_pos.y);
+				}
+				if (res.evType != SE_NONE)
+					return res;
+			}
+			break;
+#endif
 #if SDL_VERSION_ATLEAST(2, 0, 0)
 		case SDL_MOUSEWHEEL:
 			res.evType = SE_KEY;
@@ -1019,6 +1180,10 @@ sysEvent_t Sys_GetEvent() {
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
+#ifdef IMGUI_TOUCHSCREEN 
+			if (in_relativeMouseMode) // Do not shoot always
+				continue;
+#endif
 			res.evType = SE_KEY;
 
 			switch (ev.button.button) {
@@ -1066,7 +1231,7 @@ sysEvent_t Sys_GetEvent() {
 			return res;
 		case SDL_QUIT:
 			PushConsoleEvent("quit");
-			return res_none;
+			return default_res_none;
 
 		case SDL_USEREVENT:
 			switch (ev.user.code) {
@@ -1097,7 +1262,7 @@ sysEvent_t Sys_GetEvent() {
 		}
 	}
 
-	return res_none;
+	return default_res_none;
 }
 
 /*
@@ -1157,12 +1322,12 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 		} else if (event->jaxis.axis == JOY_LEFT_STICK_XAXIS) {
 			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
 			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
-			joy_axis_state[JOY_LEFT_STICK_XAXIS] = (coef > 1.0 ? 1.0 : coef) * 127;
+			joy_axis_state[JOY_LEFT_STICK_XAXIS] = coef * 127;
 			joystick_polls.Append(mouse_poll_t(AXIS_SIDE, joy_axis_state[JOY_LEFT_STICK_XAXIS]));
 		} else if (event->jaxis.axis == JOY_LEFT_STICK_YAXIS) {
 			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
 			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
-			joy_axis_state[JOY_LEFT_STICK_YAXIS] = -(coef > 1.0 ? 1.0 : coef) * 127;
+			joy_axis_state[JOY_LEFT_STICK_YAXIS] = -coef * 127;
 			joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, joy_axis_state[JOY_LEFT_STICK_YAXIS]));
 		} else if (event->jaxis.axis == JOY_RIGHT_SHOULDER) {
 			int pressed = (event->jaxis.value > (JOYSTICK_DEAD_ZONE - JOYAXIS_MAX)) ? 1 : 0;
@@ -1275,9 +1440,6 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 		break;
 	case SDL_JOYBATTERYUPDATED:      /**< Joystick battery level change */
 		common->Printf("JoyEvent: SDL_JOYBATTERYUPDATED: %i", event->jbattery.level);
-		break;
-	default:
-		common->Printf("unknown SDL event 0x%x", event->type);
 		break;
 	}
 	return result;

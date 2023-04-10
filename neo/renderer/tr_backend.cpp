@@ -33,6 +33,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "framework/Session_local.h"
 #endif
 
 frameData_t		*frameData;
@@ -346,8 +347,8 @@ const void	RB_SwapBuffers( const void *data ) {
 	if ( r_finish.GetBool() ) {
 		qglFinish();
 	}
-	// R_FrameBufferEnd();
 
+#ifdef IMGUI_TOUCHSCREEN
 	// Start the Dear ImGui frame
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
@@ -356,39 +357,69 @@ const void	RB_SwapBuffers( const void *data ) {
 
 	io.DisplaySize.x = glConfig.vidWidth;
 	io.DisplaySize.y = glConfig.vidHeight;
-
-	static const char* left_side = "left_side_window";
-	static const char* right_side = "right_side_window";
-	static const char* key_esc = "key_esc";
-	static const float scale_factor = 1.0f;
 	
 	ImGui::NewFrame(); 
 	{// ImGui interface
 		bool show_window = true;
-		ImGui::Begin(left_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration);
-			ImGui::SetWindowPos(left_side, {0.0, 0.0}, ImGuiCond_Always);
-			ImGui::SetWindowSize(left_side, {glConfig.vidWidth * 0.5, glConfig.vidHeight}, ImGuiCond_Always);
-			ImGui::Button("Hello GUI");
-			ImVec2 pos = ImGui::GetWindowPos();
+
+		ImGui::Begin(imgui_left_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration);
 			ImGui::Text("FPS %.1f (%.3f ms/frame)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
 		ImGui::End();
 
-		ImGui::Begin(right_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration); 
-			ImGui::SetWindowPos(right_side, {glConfig.vidWidth * 0.5, 0.0}, ImGuiCond_Always);
-			ImGui::SetWindowSize(right_side, {glConfig.vidWidth * 0.5, glConfig.vidHeight}, ImGuiCond_Always);
+		ImGui::Begin(imgui_right_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration); 
 		ImGui::End();
 		
-		ImGui::Begin(key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
-			ImGui::SetWindowPos(key_esc, {glConfig.vidWidth - 80 * scale_factor, 0.0}, ImGuiCond_Always);
-			ImGui::SetWindowSize(key_esc, {50 * scale_factor, 27 * scale_factor}, ImGuiCond_Always);
-			ImGui::Text("ESC");
-		ImGui::End();
+		if (sessLocal.guiActive == sessLocal.guiInGame) {
+			ImGui::Begin(imgui_key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration);
+				ImGui::Text("ESC");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_quicksave, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("save");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_quickload, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("load");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_fire, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("FIRE");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_reload, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("R");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_jump, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("UP");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_crounch, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("DOWN");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_flashlight, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("Flashlight");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_weapprev, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("wprev");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_weapnext, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("wnext");
+			ImGui::End();
+
+			ImGui::Begin(imgui_key_pda, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+				ImGui::Text("PDA");
+			ImGui::End();
+		}
 	}
 
 	// Rendering
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	
+#endif
 	R_FrameBufferEnd();
 
 	GLimp_SwapBuffers();

@@ -357,7 +357,9 @@ private:
 	void			Mouse( void );
 	void			Keyboard( void );
 	void			Joystick( void );
-
+#ifdef IMGUI_TOUCHSCREEN
+	void			ImGui( void );
+#endif
 	void			Key( int keyNum, bool down );
 
 	idVec3			viewangles;
@@ -1058,6 +1060,71 @@ void idUsercmdGenLocal::Joystick( void ) {
 	Sys_EndJoystickInputEvents();
 }
 
+#ifdef IMGUI_TOUCHSCREEN
+/*
+===============
+idUsercmdGenLocal::ImGui
+===============
+*/
+void idUsercmdGenLocal::ImGui( void ) {
+	int numEvents = Sys_PollImGuiEvents();
+	if ( numEvents ) {
+		int key;
+		int state;
+		for( int i = 0; i < numEvents; i++ ) {
+			if (Sys_ReturnImGuiEvent( i, key, state )) {
+				// Sanity check, sometimes we get double message :(
+				// if ( keyState[ keyNum ] == down ) {
+					// return;
+				// }
+				// keyState[ keyNum ] = down;
+
+				int action = -1; //idKeyInput::GetUsercmdAction( keyNum );
+				
+				switch(key) {
+				case IMPULSE_40 + 1: //BUTTON_ATTACK
+					action = UB_ATTACK;
+					break;
+				case IMPULSE_40 + 2: //BUTTON_RUN
+					action = UB_SPEED;
+					break;
+				case IMPULSE_40 + 3: //BUTTON_ZOOM
+					action = UB_ZOOM;
+					break;
+				case IMPULSE_40 + 4: //UB_UP
+					action = UB_UP;
+					break;
+				case IMPULSE_40 + 5: //UD_DOWN
+					action = UB_DOWN;
+					break;
+				default: 
+					action = UB_IMPULSE0 + key;
+				}
+				if (action > UB_IMPULSE40)
+					action = UB_IMPULSE40;
+
+				if ( state == 1 ) {
+					buttonState[ action ]++;
+
+					if ( !Inhibited()  ) {
+						if ( action >= UB_IMPULSE0 && action <= UB_IMPULSE61 ) {
+							cmd.impulse = action - UB_IMPULSE0;
+							cmd.flags ^= UCF_IMPULSE_SEQUENCE;
+						}
+					}
+				} else {
+					buttonState[ action ]--;
+					// we might have one held down across an app active transition
+					if ( buttonState[ action ] < 0 ) {
+						buttonState[ action ] = 0;
+					}
+				}
+			}
+		}
+	}
+	Sys_EndImGuiEvents();
+}
+#endif
 /*
 ================
 idUsercmdGenLocal::UsercmdInterrupt
@@ -1082,7 +1149,10 @@ void idUsercmdGenLocal::UsercmdInterrupt( void ) {
 
 	// process the system joystick events
 	Joystick();
-
+#ifdef IMGUI_TOUCHSCREEN
+	// process ImGui system events
+	ImGui();
+#endif
 	// create the usercmd for com_ticNumber+1
 	MakeCurrent();
 
@@ -1122,7 +1192,10 @@ usercmd_t idUsercmdGenLocal::GetDirectUsercmd( void ) {
 
 	// process the system joystick events
  	Joystick();
-
+#ifdef IMGUI_TOUCHSCREEN
+	// process ImGui system events
+	ImGui();
+#endif
 	// create the usercmd
 	MakeCurrent();
 

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
 project(ru.sashikknox.dhewm3)
 
+if(NOT SFOS_PACKAGE_NAME)
+set(SFOS_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
+endif()
+
 message("Configure SDL2:")
 set(LIB_SUFFIX "")
 set(PULSEAUDIO ON)
@@ -15,7 +19,6 @@ message("Configure imgui:")
 add_subdirectory(${CMAKE_SOURCE_DIR}/imgui)
 
 message("Configure DHEWM3:")
-set(LIPSTICK_FBO ON)
-set(DHEWM3BINARY ${CMAKE_PROJECT_NAME})
+set(DHEWM3BINARY ${SFOS_PACKAGE_NAME})
 set(SAILFISHOS ON)
 add_subdirectory(${CMAKE_SOURCE_DIR}/neo)

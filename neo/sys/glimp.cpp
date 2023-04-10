@@ -120,6 +120,25 @@ static SDL_Surface *window = NULL;
 #define SDL_WINDOW_FULLSCREEN SDL_FULLSCREEN
 #endif
 
+#ifdef IMGUI_TOUCHSCREEN
+const char* imgui_left_side = "left_side_window";
+const char* imgui_right_side = "right_side_window";
+const char* imgui_key_esc = "key_esc";
+const char* imgui_key_fire = "key_fire";
+const char* imgui_key_jump = "key_jump";
+const char* imgui_key_speed = "key_speed";
+const char* imgui_key_zoom = "key_zoom";
+const char* imgui_key_pda = "key_pda";
+const char* imgui_key_crounch = "key_crounch";
+const char* imgui_key_flashlight = "key_flashlight";
+const char* imgui_key_reload = "key_reload";
+const char* imgui_key_weapnext = "key_weapnext";
+const char* imgui_key_weapprev = "key_weapprev";
+const char* imgui_key_quicksave = "key_quicksave";
+const char* imgui_key_quickload = "key_quickload";
+float       imgui_scale_factor = 1.0f;
+#endif
+
 #ifdef USE_LIPSTICK_FBO
 static SDL_DisplayOrientation windowOrientation = SDL_ORIENTATION_LANDSCAPE;
 #endif
@@ -628,6 +647,8 @@ try_again:
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+	io.DisplaySize.x = glConfig.vidWidth;
+	io.DisplaySize.y = glConfig.vidHeight;
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -638,13 +659,107 @@ try_again:
 	ImGui_ImplOpenGL3_Init("#version 100");
 
 	ImGuiStyle * style = &ImGui::GetStyle();
-	float scale_factor = 1.0f; // setup this scale factor inside framebuffer setting
-	style->ScaleAllSizes(scale_factor);
-	io.FontGlobalScale = scale_factor;
+	imgui_scale_factor = glConfig.vidHeight / 320.0f;  // ui was programmed for 320p
+	style->ScaleAllSizes(imgui_scale_factor);
+	io.FontGlobalScale = imgui_scale_factor;
 
-	// TODO: create ImGui interface 
+	bool show_window = true;
+
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplSDL2_NewFrame();
+	ImGui::NewFrame(); 
+	
+	ImGui::Begin(imgui_left_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration);
+		ImGui::SetWindowPos(imgui_left_side, {0.0, 0.0}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_left_side, {glConfig.vidWidth * 0.5, glConfig.vidHeight}, ImGuiCond_Always);
+		ImGui::Text("FPS %.1f (%.3f ms/frame)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+	ImGui::End();
+
+	/* ==================
+	InGame Gui Interface
+	===================== */
+	ImGui::Begin(imgui_right_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_right_side, {glConfig.vidWidth * 0.5, 0.0}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_right_side, {glConfig.vidWidth * 0.5, glConfig.vidHeight}, ImGuiCond_Always);
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_esc, {glConfig.vidWidth * 0.5 - 25 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_esc, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("ESC");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_quicksave, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_quicksave, {glConfig.vidWidth - 190 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_quicksave, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("save");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_quickload, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_quickload, {glConfig.vidWidth - 153 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_quickload, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("load");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_esc, {glConfig.vidWidth * 0.5 - 25 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_esc, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("ESC");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_fire, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_fire, {glConfig.vidWidth - 220 * imgui_scale_factor, 140.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_fire, {60 * imgui_scale_factor, 60 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("FIRE");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_reload, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_reload, {glConfig.vidWidth - 100 * imgui_scale_factor, 40.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_reload, {50 * imgui_scale_factor, 50 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("R");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_jump, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_jump, {glConfig.vidWidth - 60 * imgui_scale_factor,glConfig.vidHeight - 130.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_jump, {50 * imgui_scale_factor, 50 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("UP");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_crounch, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_crounch, {glConfig.vidWidth - 60 * imgui_scale_factor, glConfig.vidHeight - 74.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_crounch, {50 * imgui_scale_factor, 50 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("DOWN");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_flashlight, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos(imgui_key_flashlight, {glConfig.vidWidth - 90 * imgui_scale_factor, 0.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_flashlight, {70 * imgui_scale_factor, 35 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("Flashlight");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_weapprev, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_weapprev, {glConfig.vidWidth * 0.5 - 82 * imgui_scale_factor, glConfig.vidHeight - 35.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_weapprev, {80 * imgui_scale_factor, 35 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("wprev");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_weapnext, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_weapnext, {glConfig.vidWidth * 0.5 + 2 * imgui_scale_factor, glConfig.vidHeight - 35.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_weapnext, {80 * imgui_scale_factor, 35 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("wnext");
+	ImGui::End();
+
+	ImGui::Begin(imgui_key_pda, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_pda, {2 * imgui_scale_factor, 35.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_pda, {35 * imgui_scale_factor, 35 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::Text("PDA");
+	ImGui::End();
+
+
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #endif
-
 	return true;
 }
 

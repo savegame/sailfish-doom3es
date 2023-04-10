@@ -194,6 +194,13 @@ int				Sys_PollMouseInputEvents( void );
 int				Sys_ReturnMouseInputEvent( const int n, int &action, int &value );
 void			Sys_EndMouseInputEvents( void );
 
+#ifdef IMGUI_TOUCHSCREEN
+// ImGui touch screen polling
+int				Sys_PollImGuiEvents( void );
+int				Sys_ReturnImGuiEvent( const int n, int &action, int &value );
+void			Sys_EndImGuiEvents( void );
+#endif 
+
 // when the console is down, or the game is about to perform a lengthy
 // operation like map loading, the system can release the mouse cursor
 // when in windowed mode

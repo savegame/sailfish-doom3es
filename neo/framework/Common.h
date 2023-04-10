@@ -89,6 +89,25 @@ extern bool			com_editorActive;		// true if an editor has focus
 
 extern bool			com_debuggerSupported;	// only set to true when the updateDebugger function is set. see GetAdditionalFunction()
 
+#ifdef IMGUI_TOUCHSCREEN
+extern const char* imgui_left_side; 
+extern const char* imgui_right_side;
+extern const char* imgui_key_esc;
+extern const char* imgui_key_fire;
+extern const char* imgui_key_jump;
+extern const char* imgui_key_speed;
+extern const char* imgui_key_zoom;
+extern const char* imgui_key_pda;
+extern const char* imgui_key_crounch;
+extern const char* imgui_key_flashlight;
+extern const char* imgui_key_reload;
+extern const char* imgui_key_weapnext;
+extern const char* imgui_key_weapprev;
+extern const char* imgui_key_quicksave;
+extern const char* imgui_key_quickload;
+extern float       imgui_scale_factor;
+#endif
+
 #ifdef _WIN32
 const char			DMAP_MSGID[] = "DMAPOutput";
 const char			DMAP_DONE[] = "DMAPDone";

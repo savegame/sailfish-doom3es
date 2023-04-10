@@ -66,6 +66,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "framework/Session_local.h"
 #include <functional>
 #endif
 
@@ -92,7 +93,6 @@ static idCVar in_grabKeyboard("in_grabKeyboard", "0", CVAR_SYSTEM | CVAR_ARCHIVE
 static bool in_relativeMouseMode = true;
 // set in Sys_GetEvent() on window focus gained/lost events
 static bool in_hasFocus = true;
-#define MAX_TOUCH_FINGERS 10
 
 enum ImGui_TouchItem {
 	TouchItem_ESC,
@@ -104,11 +104,15 @@ enum ImGui_TouchItem {
 	TouchItem_WeaponNext,
 	TouchItem_WeaponPrev,
 	TouchItem_PDA,
+	TouchItem_QuickSave,
+	TouchItem_QuickLoad,
+	// Left and Right side areas should be last in enum
 	TouchItem_LeftSide,
 	TouchItem_RightSide,
 	TouchItem_Count
 };
 
+#ifdef IMGUI_TOUCHSCREEN
 static struct imgui_touch_state_t {
 	int fingerId;
 	ImGuiWindow *window;
@@ -125,6 +129,7 @@ static struct imgui_touch_state_t {
 		window = w;
 	}
 } touch_fingers[TouchItem_Count];
+#endif
 
 static const sysEvent_t default_res_none = { SE_NONE, 0, 0, 0, NULL };
 
@@ -157,6 +162,7 @@ struct mouse_poll_t {
 static idList<kbd_poll_t> kbd_polls;
 static idList<mouse_poll_t> mouse_polls;
 static idList<mouse_poll_t> joystick_polls;
+static idList<mouse_poll_t> imgui_polls;
 
 static SDL_Joystick *joystick = NULL;
 static SDL_GameController *controller = NULL;
@@ -616,11 +622,13 @@ static void PushConsoleEvent(const char *s) {
 	SDL_PushEvent(&event);
 }
 
+#ifdef IMGUI_TOUCHSCREEN
 static void ResetTouchFingerState() {
 	for (int i = 0; i < TouchItem_Count; i++) {
 		touch_fingers[i].fingerId = -1;
 	}
 }
+#endif
 
 /*
 =================
@@ -692,6 +700,85 @@ void Sys_InitInput() {
 		kbd_polls.Append(kbd_poll_t(K_ESCAPE, ev.type == SDL_FINGERDOWN));
 		ResetTouchFingerState();
 		return res;
+	});
+	touch_fingers[TouchItem_Fire].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion on fire button
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_40 + 1 /*BUTTON_ATTACK*/, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+	// + 2 BUTTON_SPEED
+	// + 3 BUTTON_ZOOM
+	// + 4 UB_UP, // jump
+	// + 5 UB_DOWN, // crouch
+	touch_fingers[TouchItem_Jump].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_40 + 4 /*BUTTON_UP*/, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_Crounch].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_40 + 5 /*BUTTON_DOWN*/, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_Flashlight].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_11, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_WeaponNext].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_14, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_WeaponPrev].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_15, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_Reload].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_13, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_PDA].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		if (ev.type == SDL_FINGERMOTION) // use mouse motion
+			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
+		imgui_polls.Append(mouse_poll_t(IMPULSE_19, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_QuickSave].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		sessLocal.QuickSave();
+		return default_res_none;
+	});
+
+	touch_fingers[TouchItem_QuickLoad].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		sessLocal.QuickLoad();
+		ResetTouchFingerState();
+		return default_res_none;
 	});
 #endif
 }
@@ -1062,15 +1149,16 @@ sysEvent_t Sys_GetEvent() {
 #endif
 
 		case SDL_MOUSEMOTION: {
-			ImVec2 mouse_pos;
+#ifdef USE_LIPSTICK_FBO
+			float mouse_pos[2];
 			if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
-				mouse_pos.x = (1.0 - (float)ev.motion.y / glConfig.vidHeightReal) * glConfig.vidWidth;
-				mouse_pos.y = (float)ev.motion.x / glConfig.vidWidthReal * glConfig.vidHeight;
+				mouse_pos[0] = (1.0 - (float)ev.motion.y / glConfig.vidHeightReal) * glConfig.vidWidth;
+				mouse_pos[1] = (float)ev.motion.x / glConfig.vidWidthReal * glConfig.vidHeight;
 			} else {
-				mouse_pos.x = (float)ev.motion.y / glConfig.vidHeightReal * glConfig.vidWidth;
-				mouse_pos.y = (1.0 - (float)ev.motion.x / glConfig.vidWidthReal) * glConfig.vidHeight;
+				mouse_pos[0] = (float)ev.motion.y / glConfig.vidHeightReal * glConfig.vidWidth;
+				mouse_pos[1] = (1.0 - (float)ev.motion.x / glConfig.vidWidthReal) * glConfig.vidHeight;
 			}
-
+#endif
 			if ( in_relativeMouseMode ) {
 #ifdef IMGUI_TOUCHSCREEN
 				continue;
@@ -1093,8 +1181,8 @@ sysEvent_t Sys_GetEvent() {
 			} else {
 				res.evType = SE_MOUSE_ABS;
 #ifdef USE_LIPSTICK_FBO
-				res.evValue = mouse_pos.x;
-				res.evValue2 = mouse_pos.y;
+				res.evValue = mouse_pos[0];
+				res.evValue2 = mouse_pos[1];
 #else
 				res.evValue = ev.motion.x;
 				res.evValue2 = ev.motion.y;
@@ -1103,7 +1191,7 @@ sysEvent_t Sys_GetEvent() {
 
 #if IMGUI_TOUCHSCREEN
 			ImGuiIO& io = ImGui::GetIO();
-			io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+			io.AddMousePosEvent(mouse_pos[0], mouse_pos[1]);
 #endif
 			return res;
 		}
@@ -1114,9 +1202,19 @@ sysEvent_t Sys_GetEvent() {
 			{
 				res.evType = SE_NONE;
 				if (!touch_fingers[TouchItem_LeftSide].window) {
-					touch_fingers[TouchItem_LeftSide].window = ImGui::FindWindowByName("left_side_window");
-					touch_fingers[TouchItem_RightSide].window = ImGui::FindWindowByName("right_side_window");
-					touch_fingers[TouchItem_ESC].window = ImGui::FindWindowByName("key_esc");
+					touch_fingers[TouchItem_LeftSide].window = ImGui::FindWindowByName(imgui_left_side);
+					touch_fingers[TouchItem_RightSide].window = ImGui::FindWindowByName(imgui_right_side);
+					touch_fingers[TouchItem_ESC].window = ImGui::FindWindowByName(imgui_key_esc);
+					touch_fingers[TouchItem_Fire].window = ImGui::FindWindowByName(imgui_key_fire);
+					touch_fingers[TouchItem_Jump].window = ImGui::FindWindowByName(imgui_key_jump);
+					touch_fingers[TouchItem_Crounch].window = ImGui::FindWindowByName(imgui_key_crounch);
+					touch_fingers[TouchItem_Flashlight].window = ImGui::FindWindowByName(imgui_key_flashlight);
+					touch_fingers[TouchItem_Reload].window = ImGui::FindWindowByName(imgui_key_reload);
+					touch_fingers[TouchItem_WeaponNext].window = ImGui::FindWindowByName(imgui_key_weapnext);
+					touch_fingers[TouchItem_WeaponPrev].window = ImGui::FindWindowByName(imgui_key_weapprev);
+					touch_fingers[TouchItem_PDA].window = ImGui::FindWindowByName(imgui_key_pda);
+					touch_fingers[TouchItem_QuickSave].window = ImGui::FindWindowByName(imgui_key_quicksave);
+					touch_fingers[TouchItem_QuickLoad].window = ImGui::FindWindowByName(imgui_key_quickload);
 				}
 
 				ImVec2 touch_pos;
@@ -1458,6 +1556,8 @@ void Sys_ClearEvents() {
 
 	kbd_polls.SetNum(0, false);
 	mouse_polls.SetNum(0, false);
+	joystick_polls.SetNum(0, false);
+	imgui_polls.SetNum(0, false);
 }
 
 static void handleMouseGrab() {
@@ -1608,6 +1708,25 @@ Sys_EndJoystickInputEvents
 void Sys_EndJoystickInputEvents() {
 	joystick_polls.SetNum(0, false);
 }
+
+#ifdef IMGUI_TOUCHSCREEN
+int Sys_PollImGuiEvents( void ) {
+	return imgui_polls.Num();
+}
+
+int Sys_ReturnImGuiEvent( const int n, int &action, int &value ) {
+	if (n >= imgui_polls.Num())
+		return 0;
+
+	action = imgui_polls[n].action;
+	value = imgui_polls[n].value;
+	return 1;
+}
+
+void Sys_EndImGuiEvents( void ) {
+	imgui_polls.SetNum(0, false);
+}
+#endif
 
 /*
 ================

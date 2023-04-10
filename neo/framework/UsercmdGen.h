@@ -41,9 +41,9 @@ const int USERCMD_HZ			= 60;			// 60 frames per second
 const int USERCMD_MSEC			= 1000 / USERCMD_HZ;
 
 // usercmd_t->button bits
-const int BUTTON_ATTACK			= BIT(0);
-const int BUTTON_RUN			= BIT(1);
-const int BUTTON_ZOOM			= BIT(2);
+const int BUTTON_ATTACK			= BIT(0);// IMPULSE_40 + 1 imgui
+const int BUTTON_RUN			= BIT(1);// IMPULSE_40 + 2 imgui
+const int BUTTON_ZOOM			= BIT(2);// IMPULSE_40 + 3 imgui 
 const int BUTTON_SCORES			= BIT(3);
 const int BUTTON_MLOOK			= BIT(4);
 const int BUTTON_5				= BIT(5);

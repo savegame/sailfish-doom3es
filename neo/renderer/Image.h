@@ -488,4 +488,12 @@ IMAGEPROGRAM
 void R_LoadImageProgram( const char *name, byte **pic, int *width, int *height, ID_TIME_T *timestamp, textureDepth_t *depth = NULL );
 const char *R_ParsePastImageProgram( idLexer &src );
 
+
+#ifdef IMGUI_TOUCHSCREEN
+/*
+IMAGEFILE 
+*/
+bool R_LoadImageFile(const char* filename, GLuint &out_texture, int &out_width, int &out_height);
+#endif
+
 #endif

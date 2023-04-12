@@ -90,6 +90,7 @@ extern bool			com_editorActive;		// true if an editor has focus
 extern bool			com_debuggerSupported;	// only set to true when the updateDebugger function is set. see GetAdditionalFunction()
 
 #ifdef IMGUI_TOUCHSCREEN
+#include <GLES2/gl2.h>
 extern const char* imgui_left_side; 
 extern const char* imgui_right_side;
 extern const char* imgui_key_esc;
@@ -105,7 +106,17 @@ extern const char* imgui_key_weapnext;
 extern const char* imgui_key_weapprev;
 extern const char* imgui_key_quicksave;
 extern const char* imgui_key_quickload;
+extern const char* imgui_key_settings;
+extern GLuint      imgui_img_settings;
+extern const char* imgui_wnd_settings;
 extern float       imgui_scale_factor;
+
+typedef enum ImGuiMode {
+	IMGUI_MODE_NONE,
+	IMGUI_MODE_SETTINGS,
+	IMGUI_MODE_COUNT
+} ImGuiMode_t;
+extern ImGuiMode_t imgui_mode;
 #endif
 
 #ifdef _WIN32

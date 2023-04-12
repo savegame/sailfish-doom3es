@@ -366,10 +366,15 @@ const void	RB_SwapBuffers( const void *data ) {
 			ImGui::Text("FPS %.1f (%.3f ms/frame)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
 		ImGui::End();
 
+		
 		ImGui::Begin(imgui_right_side, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration); 
 		ImGui::End();
 		
-		if (sessLocal.guiActive == sessLocal.guiInGame) {
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.2, 0.2, 0.2, 0.2));
+
+		// if (sessLocal.guiActive == sessLocal.guiInGame) {
+		if (sessLocal.GetActiveMenu() == sessLocal.guiInGame) {
 			ImGui::Begin(imgui_key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration);
 				ImGui::Text("ESC");
 			ImGui::End();
@@ -414,6 +419,13 @@ const void	RB_SwapBuffers( const void *data ) {
 				ImGui::Text("PDA");
 			ImGui::End();
 		}
+
+		ImGui::Begin(imgui_key_settings, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground); 
+			ImGui::Image((void*)(intptr_t)imgui_img_settings, ImGui::GetWindowSize(), ImVec2(0, 0), ImVec2(1.0, 1.0), ImVec4(1.0, 1.0, 1.0, 0.3));
+		ImGui::End();
+
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
 	}
 
 	// Rendering

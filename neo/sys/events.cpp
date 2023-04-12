@@ -95,6 +95,7 @@ static bool in_relativeMouseMode = true;
 static bool in_hasFocus = true;
 
 enum ImGui_TouchItem {
+	// InGame gui
 	TouchItem_ESC,
 	TouchItem_Fire,
 	TouchItem_Reload,
@@ -106,6 +107,9 @@ enum ImGui_TouchItem {
 	TouchItem_PDA,
 	TouchItem_QuickSave,
 	TouchItem_QuickLoad,
+	TouchItem_Zoom,
+	// =======
+	TouchItem_Settings,
 	// Left and Right side areas should be last in enum
 	TouchItem_LeftSide,
 	TouchItem_RightSide,
@@ -167,7 +171,7 @@ static idList<mouse_poll_t> imgui_polls;
 static SDL_Joystick *joystick = NULL;
 static SDL_GameController *controller = NULL;
 
-static int joy_axis_state[] = {0,0,0,0};
+static int joy_axis_state[] = {0,0,0,0,0};
 
 #define JOYSTICK_DEAD_ZONE 8000
 #define JOYAXIS_MAX 32768
@@ -780,6 +784,13 @@ void Sys_InitInput() {
 		ResetTouchFingerState();
 		return default_res_none;
 	});
+
+	touch_fingers[TouchItem_Settings].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
+		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
+		
+		ResetTouchFingerState();
+		return default_res_none;
+	});
 #endif
 }
 
@@ -1215,6 +1226,7 @@ sysEvent_t Sys_GetEvent() {
 					touch_fingers[TouchItem_PDA].window = ImGui::FindWindowByName(imgui_key_pda);
 					touch_fingers[TouchItem_QuickSave].window = ImGui::FindWindowByName(imgui_key_quicksave);
 					touch_fingers[TouchItem_QuickLoad].window = ImGui::FindWindowByName(imgui_key_quickload);
+					touch_fingers[TouchItem_Settings].window = ImGui::FindWindowByName(imgui_key_settings);
 				}
 
 				ImVec2 touch_pos;
@@ -1234,6 +1246,8 @@ sysEvent_t Sys_GetEvent() {
 
 				for (int i = 0; i < TouchItem_Count; i++) {
 					if (!touch_fingers[i].window)
+						continue;
+					if (sessLocal.guiActive != sessLocal.guiInGame && i <= TouchItem_Zoom) 
 						continue;
 					bool contains = touch_fingers[i].window->Rect().Contains(touch_pos);
 					if (ev.type == SDL_FINGERDOWN && touch_fingers[i].fingerId == -1 && contains) {

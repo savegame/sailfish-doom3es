@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=no-invoker
+Icon=__APPNAME__
+Exec=/usr/bin/__APPNAME__ +set r_multiSamples 0 +set r_framebufferWidth 1120 +set r_framebufferHeight 480  +disconnect +set r_gamma 3 +set r_useIndexBuffers 1 +set r_maxFps 30 +set r_customWidth 1080 +set r_customHeight 2520 +set r_mode -1 +set r_fullscreen 0
+Name=Doom 3
+Keywords=doom;first;person;shooter;dark;singleplayer;multiplayer;
+Comment=sailfish-doom3es is a Doom 3 GPL source port for SailfishOS based on dhewm 3
+
+X-Desktop-File-Install-Version=0.26
+
+[X-Sailjail]
+Sandboxing=Disabled

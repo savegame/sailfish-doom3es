@@ -1154,6 +1154,7 @@ if(CORE)
 	endif()
 	if(IMGUI_TOUCHSCREEN) 
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_TOUCHSCREEN")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRESOURCES_DIR=\\\"/usr/share/${DHEWM3BINARY}\\\"")
 		set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/imgui)
 		include_directories(
 			${IMGUI_DIR}

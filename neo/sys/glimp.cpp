@@ -39,6 +39,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "imgui_internal.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "renderer/Image.h"
 #endif
 
 #include "sys/platform.h"
@@ -136,7 +137,11 @@ const char* imgui_key_weapnext = "key_weapnext";
 const char* imgui_key_weapprev = "key_weapprev";
 const char* imgui_key_quicksave = "key_quicksave";
 const char* imgui_key_quickload = "key_quickload";
+const char* imgui_key_settings = "key_settings";
+GLuint      imgui_img_settings = GL_NONE;
+const char* imgui_wnd_settings = "wnd_settings";
 float       imgui_scale_factor = 1.0f;
+ImGuiMode_t imgui_mode = IMGUI_MODE_NONE;
 #endif
 
 #ifdef USE_LIPSTICK_FBO
@@ -664,6 +669,8 @@ try_again:
 	io.FontGlobalScale = imgui_scale_factor;
 
 	bool show_window = true;
+	int img_width, img_height;
+	char buf[1024];
 
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
@@ -755,7 +762,16 @@ try_again:
 		ImGui::Text("PDA");
 	ImGui::End();
 
+	/*==================
+	Touch Settings Gui Interface
+	====================*/
 
+	ImGui::Begin(imgui_key_settings, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
+		ImGui::SetWindowPos (imgui_key_settings, {2 * imgui_scale_factor, glConfig.vidHeight - 95.0 * imgui_scale_factor}, ImGuiCond_Always);
+		ImGui::SetWindowSize(imgui_key_settings, {44 * imgui_scale_factor, 44 * imgui_scale_factor}, ImGuiCond_Always);
+		ImFormatString(buf,1024,"%s/res/settings_256.png",RESOURCES_DIR);
+		R_LoadImageFile(buf, imgui_img_settings, img_width, img_height);
+	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

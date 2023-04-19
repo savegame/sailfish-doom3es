@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 3.19)
 project(imgui)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(SDL2_CONFIG_INCLUDE_SUFFIX "debug")
-    set(SDL2_LIB_SUFFIX "d")
+if(SAILFISHOS)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(SDL2_CONFIG_INCLUDE_SUFFIX "debug")
+        set(SDL2_LIB_SUFFIX "d")
+    else()
+        set(SDL2_CONFIG_INCLUDE_SUFFIX "relese")
+        set(SDL2_LIB_SUFFIX "")
+    endif()
+    set(SDL2_INCLUDE_DIR 
+        ${CMAKE_BINARY_DIR}/SDL2/include
+        ${CMAKE_BINARY_DIR}/SDL2/include-config-${SDL2_CONFIG_INCLUDE_SUFFIX})
 else()
-    set(SDL2_CONFIG_INCLUDE_SUFFIX "relese")
-    set(SDL2_LIB_SUFFIX "")
+    find_package(SDL2 REQUIRED)
 endif()
-set(SDL2_INCLUDE_DIR 
-    ${CMAKE_BINARY_DIR}/SDL2/include
-    ${CMAKE_BINARY_DIR}/SDL2/include-config-${SDL2_CONFIG_INCLUDE_SUFFIX})
-
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 

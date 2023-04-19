@@ -769,8 +769,16 @@ try_again:
 	ImGui::Begin(imgui_key_settings, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
 		ImGui::SetWindowPos (imgui_key_settings, {2 * imgui_scale_factor, glConfig.vidHeight - 95.0 * imgui_scale_factor}, ImGuiCond_Always);
 		ImGui::SetWindowSize(imgui_key_settings, {44 * imgui_scale_factor, 44 * imgui_scale_factor}, ImGuiCond_Always);
-		ImFormatString(buf,1024,"%s/res/settings_256.png",RESOURCES_DIR);
-		R_LoadImageFile(buf, imgui_img_settings, img_width, img_height);
+		idStr config_path;
+#ifdef SAILFISH_APPNAME
+		config_path = "/usr/share/";
+		config_path += SAILFISH_APPNAME;
+		config_path += "/res/settings_256.png";
+#else
+		Sys_GetPath(PATH_CONFIG, config_path);
+		config_path += "res/settings_256.png";
+#endif
+		R_LoadImageFile(config_path.c_str(), imgui_img_settings, img_width, img_height);
 	ImGui::End();
 
 	ImGui::Render();

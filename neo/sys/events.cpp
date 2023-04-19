@@ -1160,8 +1160,10 @@ sysEvent_t Sys_GetEvent() {
 #endif
 
 		case SDL_MOUSEMOTION: {
-#ifdef USE_LIPSTICK_FBO
+#if defined(IMGUI_TOUCHSCREEN) || defined(USE_LIPSTICK_FBO)
 			float mouse_pos[2];
+#endif
+#ifdef USE_LIPSTICK_FBO
 			if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
 				mouse_pos[0] = (1.0 - (float)ev.motion.y / glConfig.vidHeightReal) * glConfig.vidWidth;
 				mouse_pos[1] = (float)ev.motion.x / glConfig.vidWidthReal * glConfig.vidHeight;
@@ -1171,7 +1173,7 @@ sysEvent_t Sys_GetEvent() {
 			}
 #endif
 			if ( in_relativeMouseMode ) {
-#ifdef IMGUI_TOUCHSCREEN
+#if defined(IMGUI_TOUCHSCREEN) && defined(LIPSTICK_FBO)
 				continue;
 #endif
 				res.evType = SE_MOUSE;
@@ -1232,6 +1234,7 @@ sysEvent_t Sys_GetEvent() {
 				ImVec2 touch_pos;
 				ImVec2 rel_pos;
 				bool any_contains = false;
+				#ifdef USE_LIPSTICK_FBO
 				if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
 					touch_pos.x = (1.0f - ev.tfinger.y) * glConfig.vidWidth;
 					touch_pos.y = ev.tfinger.x * glConfig.vidHeight;
@@ -1243,6 +1246,12 @@ sysEvent_t Sys_GetEvent() {
 					rel_pos.x = ev.tfinger.dy * glConfig.vidWidth * 0.5;
 					rel_pos.y = -ev.tfinger.dx * glConfig.vidHeight * 0.5;
 				}
+				#else
+				touch_pos.x = ev.tfinger.x;
+				touch_pos.y = ev.tfinger.y;
+				rel_pos.x = ev.tfinger.dx;
+				rel_pos.y = ev.tfinger.dy;
+				#endif
 
 				for (int i = 0; i < TouchItem_Count; i++) {
 					if (!touch_fingers[i].window)
@@ -1292,7 +1301,7 @@ sysEvent_t Sys_GetEvent() {
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
-#ifdef IMGUI_TOUCHSCREEN 
+#if defined(IMGUI_TOUCHSCREEN) && defined(USE_LIPSTICK_FBO)
 			if (in_relativeMouseMode) // Do not shoot always
 				continue;
 #endif

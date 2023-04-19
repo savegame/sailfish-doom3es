@@ -32,8 +32,6 @@ If you have questions concerning this license or the applicable additional terms
 #include <sys/types.h>
 #include <fcntl.h>
 
-#include <SDL_main.h>
-
 #include "sys/platform.h"
 #include "framework/Licensee.h"
 #include "framework/FileSystem.h"
@@ -42,7 +40,15 @@ If you have questions concerning this license or the applicable additional terms
 
 #include <locale.h>
 
-
+#ifdef IMGUI_TOUCHSCREEN
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+#include "framework/Session_local.h"
+#include <SDL.h>
+#else
+#include <SDL_main.h>
+#endif
 
 #undef snprintf // no, I don't want to use idStr::snPrintf() here.
 
@@ -88,10 +94,17 @@ const char* Posix_GetSavePath()
 static void SetSavePath()
 {
 	const char* s = getenv("XDG_DATA_HOME");
+#ifdef SAILFISH_APPNAME
+	if (s)
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/%s", s, SAILFISH_APPNAME);
+	else
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/%s", getenv("HOME"), SAILFISH_APPNAME);
+#else
 	if (s)
 		D3_snprintfC99(save_path, sizeof(save_path), "%s/dhewm3", s);
 	else
 		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/dhewm3", getenv("HOME"));
+#endif
 }
 
 const char* Posix_GetExePath()
@@ -231,10 +244,17 @@ bool Sys_GetPath(sysPath_t type, idStr &path) {
 
 	case PATH_CONFIG:
 		s = getenv("XDG_CONFIG_HOME");
+#ifdef SAILFISH_APPNAME
+		if (s)
+			idStr::snPrintf(buf, sizeof(buf), "%s/%s", s, SAILFISH_APPNAME);
+		else
+			idStr::snPrintf(buf, sizeof(buf), "%s/.config/%s", getenv("HOME"), SAILFISH_APPNAME);
+#else
 		if (s)
 			idStr::snPrintf(buf, sizeof(buf), "%s/dhewm3", s);
 		else
 			idStr::snPrintf(buf, sizeof(buf), "%s/.config/dhewm3", getenv("HOME"));
+#endif
 
 		path = buf;
 		return true;
@@ -442,11 +462,198 @@ int main(int argc, char **argv) {
 
 	Posix_InitSignalHandlers();
 
+#ifdef IMGUI_TOUCHSCREEN
+	{	// here we need init IMGUI ui
+		// Setup SDL
+		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
+		{
+			printf("Error: %s\n", SDL_GetError());
+			return -1;
+		}
+
+		// Decide GL+GLSL versions
+	#if defined(IMGUI_IMPL_OPENGL_ES2)
+		// GL ES 2.0 + GLSL 100
+		const char* glsl_version = "#version 100";
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	#elif defined(__APPLE__)
+		// GL 3.2 Core + GLSL 150
+		const char* glsl_version = "#version 150";
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	#else
+		// GL 3.0 + GLSL 130
+		const char* glsl_version = "#version 130";
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	#endif
+		// From 2.0.18: Enable native IME.
+	#ifdef SDL_HINT_IME_SHOW_UI
+		SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
+	#endif
+
+		// Create window with graphics context
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+		SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, window_flags);
+		SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+		SDL_GL_MakeCurrent(window, gl_context);
+		SDL_GL_SetSwapInterval(1); // Enable vsync
+
+		// Setup Dear ImGui context
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+		// Setup Dear ImGui style
+		ImGui::StyleColorsDark();
+		//ImGui::StyleColorsLight();
+
+		// Setup Platform/Renderer backends
+		ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+		ImGui_ImplOpenGL3_Init(glsl_version);
+
+		// Our state
+		bool show_demo_window = true;
+		bool show_another_window = false;
+		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+		// Main loop
+		bool done = false;
+		bool no_basepath = true;
+		int argc_copy;
+		const int argc_add = 3;
+		char** argv_copy = NULL;
+		char *fs_basepath_ptr = NULL;
+		// check args 
+		for (int i = 1; i < argc; i++) {
+			if (strcmp("fs_basepath", argv[i]) == 0) {
+				no_basepath = false;
+				i++;
+				fs_basepath_ptr = argv[i];
+				break;
+			}
+		}
+
+		if (no_basepath) {
+			argc_copy = argc + argc_add;
+			argv_copy = (char**)malloc(argc_copy * sizeof(char*));
+			memset(argv_copy, 0, argc_copy * sizeof(char*));
+			for (int i = 0; i < argc; i++) {
+				argv_copy[i] = argv[i];
+			}
+			argv_copy[argc] = "+set\0";
+			argv_copy[argc + 1] = "fs_basepath\0";
+			argv_copy[argc + 2] = "/home/sashikknox/Downloads/doom3/DOOM3/\0";
+			fs_basepath_ptr = argv_copy[argc + 2];
+		}
+
+	#ifdef __EMSCRIPTEN__
+		// For an Emscripten build we are disabling file-system access, so let's not attempt to do a fopen() of the imgui.ini file.
+		// You may manually call LoadIniSettingsFromMemory() to load settings from your own storage.
+		io.IniFilename = NULL;
+		EMSCRIPTEN_MAINLOOP_BEGIN
+	#else
+		while (!done)
+	#endif
+		{
+			// Poll and handle events (inputs, window resize, etc.)
+			// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+			// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
+			// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+			// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+			SDL_Event event;
+			while (SDL_PollEvent(&event))
+			{
+				ImGui_ImplSDL2_ProcessEvent(&event);
+				if (event.type == SDL_QUIT)
+					done = true;
+				else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+					done = true;
+				else if (event.type == SDL_FINGERMOTION) {
+					ImVec2 mouse_pos((float)event.tfinger.x, (float)event.tfinger.y);
+					io.AddMousePosEvent(mouse_pos.x * io.DisplaySize.x, mouse_pos.y * io.DisplaySize.y);
+				} else if (event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP) {
+					ImVec2 mouse_pos((float)event.tfinger.x, (float)event.tfinger.y);
+					io.AddMousePosEvent(mouse_pos.x * io.DisplaySize.x, mouse_pos.y * io.DisplaySize.y);
+					io.AddMouseButtonEvent(0, (event.type == SDL_FINGERDOWN));
+				}
+			}
+
+			// Start the Dear ImGui frame
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplSDL2_NewFrame();
+			ImGui::NewFrame();
+
+			// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+			{
+				static float f = 0.0f;
+				static int counter = 0;
+
+				ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+				ImGui::SetWindowPos(ImVec2(0,0));
+				ImGui::SetWindowSize(io.DisplaySize);
+				ImGui::Text("Doom 3 path: %s", fs_basepath_ptr);               // Display some text (you can use a format strings too)
+				if (no_basepath) {
+					if (ImGui::Button("fs_basepath set Doom 3", ImVec2(220,85)))
+						done = true;
+				} else {
+					if (ImGui::Button("Continue to Doom 3", ImVec2(220,85)))
+						done = true;
+				}
+				ImGui::End();
+			}
+
+			// Rendering
+			ImGui::Render();
+			glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+			glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+			glClear(GL_COLOR_BUFFER_BIT);
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+			SDL_GL_SwapWindow(window);
+		}
+	#ifdef __EMSCRIPTEN__
+		EMSCRIPTEN_MAINLOOP_END;
+	#endif
+
+		// Cleanup
+		ImGui_ImplOpenGL3_Shutdown();
+		ImGui_ImplSDL2_Shutdown();
+		ImGui::DestroyContext();
+
+		SDL_GL_DeleteContext(gl_context);
+		SDL_DestroyWindow(window);
+
+		if ( argc > 1 ) {
+			if (no_basepath) {
+				common->Init( argc_copy-1, &argv_copy[1] );
+				// TODO: free string allocated when choose fs_basepath folder
+				free(argv_copy);
+			} else {
+				common->Init( argc-1, &argv[1] );
+			}
+		} else {
+			common->Init( 0, NULL );
+		}
+	}
+#else
 	if ( argc > 1 ) {
 		common->Init( argc-1, &argv[1] );
 	} else {
 		common->Init( 0, NULL );
 	}
+#endif
 
 	while (1) {
 		common->Frame();

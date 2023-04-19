@@ -53,6 +53,7 @@ cd %{build_dir}
 cmake \
     -DCMAKE_BUILD_TYPE=Relese \
     -DSFOS_PACKAGE_NAME="%{name}" \
+    -DSAILFISHOS=ON \
     ../
 %make_build
 strip neo/base.so

@@ -10,4 +10,6 @@ Comment=sailfish-doom3es is a Doom 3 GPL source port for SailfishOS based on dhe
 X-Desktop-File-Install-Version=0.26
 
 [X-Sailjail]
-Sandboxing=Disabled
+Permissions=UserDirs;RemovableMedia;Internet;Audio
+OrganizationName=ru.sashikknox
+ApplicationName=doom3es

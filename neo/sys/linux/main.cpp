@@ -45,6 +45,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 #include "framework/Session_local.h"
+#include "imfilebrowser.h"
 #include <SDL.h>
 #else
 #include <SDL_main.h>
@@ -463,7 +464,8 @@ int main(int argc, char **argv) {
 	Posix_InitSignalHandlers();
 
 #ifdef IMGUI_TOUCHSCREEN
-	{	// here we need init IMGUI ui
+	{
+		// here we need init IMGUI ui
 		// Setup SDL
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
 		{
@@ -474,7 +476,7 @@ int main(int argc, char **argv) {
 		// Decide GL+GLSL versions
 	#if defined(IMGUI_IMPL_OPENGL_ES2)
 		// GL ES 2.0 + GLSL 100
-		const char* glsl_version = "#version 100";
+		const char* glsl_version =  "#version 100";
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -503,8 +505,14 @@ int main(int argc, char **argv) {
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+		SDL_DisplayMode dm;
+		SDL_GetCurrentDisplayMode(0,&dm);
 		SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+		#ifdef SAILFISHOS
+		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, dm.w, dm.h, window_flags);
+		#else
 		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, window_flags);
+		#endif
 		SDL_GLContext gl_context = SDL_GL_CreateContext(window);
 		SDL_GL_MakeCurrent(window, gl_context);
 		SDL_GL_SetSwapInterval(1); // Enable vsync
@@ -524,18 +532,32 @@ int main(int argc, char **argv) {
 		ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
 		ImGui_ImplOpenGL3_Init(glsl_version);
 
+		ImGuiStyle * style = &ImGui::GetStyle();
+		#ifdef SAILFISHOS
+		float imgui_scale_factor = dm.w / 220.0f;
+		#else
+		float imgui_scale_factor = 640 / 320.0f;
+		#endif
+		style->ScaleAllSizes(imgui_scale_factor);
+		io.FontGlobalScale = imgui_scale_factor;
+
 		// Our state
 		bool show_demo_window = true;
-		bool show_another_window = false;
 		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 		// Main loop
+		// create a file browser instance
+		ImGui::FileBrowser fileDialog(ImGuiFileBrowserFlags_SelectDirectory | ImGuiFileBrowserFlags_NoModal);
+		int finger_id = -1; // use just first finger for ImGui events
 		bool done = false;
 		bool no_basepath = true;
 		int argc_copy;
 		const int argc_add = 3;
 		char** argv_copy = NULL;
 		char *fs_basepath_ptr = NULL;
+		// gui settings
+		const int button_height = 160;
+		bool settings_changed = false;
 		// check args 
 		for (int i = 1; i < argc; i++) {
 			if (strcmp("fs_basepath", argv[i]) == 0) {
@@ -555,8 +577,27 @@ int main(int argc, char **argv) {
 			}
 			argv_copy[argc] = "+set\0";
 			argv_copy[argc + 1] = "fs_basepath\0";
-			argv_copy[argc + 2] = "/home/sashikknox/Downloads/doom3/DOOM3/\0";
 			fs_basepath_ptr = argv_copy[argc + 2];
+		}
+
+		idStr sys_path; 
+		Sys_GetPath(PATH_CONFIG,sys_path);
+		sys_path += "/imgui_settings.cfg";
+		// Try load settings file 
+		if (idFile *f = fileSystem->OpenExplicitFileRead(sys_path.c_str() )) {
+			idStr tmp_string;
+
+			f->ReadString(tmp_string);
+			
+			if (!tmp_string.IsEmpty()) {
+				argv_copy[argc + 2] = (char*)malloc(tmp_string.Length() + 1);
+				// memccpy(argv_copy[argc + 2], tmp_string.c_str(), tmp_string.Length(), sizeof(char));
+				strcpy(argv_copy[argc + 2], tmp_string.c_str());
+				argv_copy[argc + 2][tmp_string.Length()] = '\0';
+				fs_basepath_ptr = argv_copy[argc + 2];
+			}
+
+			delete f; // close file 
 		}
 
 	#ifdef __EMSCRIPTEN__
@@ -565,6 +606,7 @@ int main(int argc, char **argv) {
 		io.IniFilename = NULL;
 		EMSCRIPTEN_MAINLOOP_BEGIN
 	#else
+		ImVec2 mouse_pos;
 		while (!done)
 	#endif
 		{
@@ -578,16 +620,25 @@ int main(int argc, char **argv) {
 			{
 				ImGui_ImplSDL2_ProcessEvent(&event);
 				if (event.type == SDL_QUIT)
-					done = true;
+					return 0;
 				else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
 					done = true;
 				else if (event.type == SDL_FINGERMOTION) {
-					ImVec2 mouse_pos((float)event.tfinger.x, (float)event.tfinger.y);
-					io.AddMousePosEvent(mouse_pos.x * io.DisplaySize.x, mouse_pos.y * io.DisplaySize.y);
+					if(finger_id != event.tfinger.fingerId)
+						continue;
+					mouse_pos = ImVec2((float)event.tfinger.x * io.DisplaySize.x, (float)event.tfinger.y * io.DisplaySize.y);
+					io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
 				} else if (event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP) {
-					ImVec2 mouse_pos((float)event.tfinger.x, (float)event.tfinger.y);
-					io.AddMousePosEvent(mouse_pos.x * io.DisplaySize.x, mouse_pos.y * io.DisplaySize.y);
-					io.AddMouseButtonEvent(0, (event.type == SDL_FINGERDOWN));
+					if (finger_id == -1 && event.type == SDL_FINGERDOWN) {
+						finger_id = event.tfinger.fingerId;
+					} else if(finger_id == event.tfinger.fingerId) {
+						finger_id = -1;
+					} else {
+						continue;
+					}
+					// mouse_pos = ImVec2((float)event.tfinger.x * io.DisplaySize.x, (float)event.tfinger.y * io.DisplaySize.y);
+					// io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+					// io.AddMouseButtonEvent(0, (event.type == SDL_FINGERDOWN));
 				}
 			}
 
@@ -601,18 +652,38 @@ int main(int argc, char **argv) {
 				static float f = 0.0f;
 				static int counter = 0;
 
-				ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+				ImGui::Begin("Doom3 Startup settings", &show_demo_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration);
 				ImGui::SetWindowPos(ImVec2(0,0));
 				ImGui::SetWindowSize(io.DisplaySize);
-				ImGui::Text("Doom 3 path: %s", fs_basepath_ptr);               // Display some text (you can use a format strings too)
-				if (no_basepath) {
-					if (ImGui::Button("fs_basepath set Doom 3", ImVec2(220,85)))
-						done = true;
-				} else {
-					if (ImGui::Button("Continue to Doom 3", ImVec2(220,85)))
-						done = true;
+				ImGui::Text("Doom 3 path: %s", fs_basepath_ptr ? fs_basepath_ptr : "null");               // Display some text (you can use a format strings too)
+
+				
+				if (ImGui::Button("Open path", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
+					fileDialog.Open();
 				}
+
+
+				if (fs_basepath_ptr && ImGui::Button("Continue to Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height)))
+					done = true;
+				
 				ImGui::End();
+
+				fileDialog.SetWindowPos(0,0);
+				fileDialog.SetWindowSize(io.DisplaySize);
+
+				if (no_basepath) {
+					fileDialog.Display();
+				
+					if (fileDialog.HasSelected() && fileDialog.GetSelected().string().size() > 0) {
+						argv_copy[argc + 2] = (char*)malloc(fileDialog.GetSelected().string().size() + 1);
+						fs_basepath_ptr = argv_copy[argc + 2];
+						memcpy(argv_copy[argc + 2], fileDialog.GetSelected().string().c_str(), fileDialog.GetSelected().string().size());
+						argv_copy[argc + 2][fileDialog.GetSelected().string().size()] = '\0';
+						fileDialog.ClearSelected();
+						no_basepath = false;
+						settings_changed = true;
+					}
+				}
 			}
 
 			// Rendering
@@ -627,6 +698,9 @@ int main(int argc, char **argv) {
 		EMSCRIPTEN_MAINLOOP_END;
 	#endif
 
+		style->ScaleAllSizes(1.0 / imgui_scale_factor);
+		io.FontGlobalScale = 1.0f;
+
 		// Cleanup
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplSDL2_Shutdown();
@@ -635,10 +709,20 @@ int main(int argc, char **argv) {
 		SDL_GL_DeleteContext(gl_context);
 		SDL_DestroyWindow(window);
 
+		// savesettings 
+		if (settings_changed) {
+			if (idFile *f = fileSystem->OpenExplicitFileWrite(sys_path.c_str())) {
+				f->WriteString(fs_basepath_ptr);
+				delete f; // close file
+			}
+		}
+
 		if ( argc > 1 ) {
 			if (no_basepath) {
 				common->Init( argc_copy-1, &argv_copy[1] );
 				// TODO: free string allocated when choose fs_basepath folder
+				if(argv_copy[argc + 2])
+					free(argv_copy[argc + 2]);
 				free(argv_copy);
 			} else {
 				common->Init( argc-1, &argv[1] );

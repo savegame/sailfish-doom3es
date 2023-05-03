@@ -37,6 +37,8 @@ If you have questions concerning this license or the applicable additional terms
 #if defined(__AROS__)
 #define GAME_NAME						"ADoom3"		// appears in errors
 #define CONFIG_FILE						"adoom3.cfg"
+#elif defined(SAILFISHOS)
+#define GAME_NAME						SAILFISH_APPNAME// appears in errors
 #else
 #define GAME_NAME						"dhewm 3"		// appears in errors
 #endif

@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.19)
+
+if(SAILFISHOS)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+endif()
+
 project(sailfish-doom3es)
+
 
 if(NOT SFOS_PACKAGE_NAME)
 set(SFOS_PACKAGE_NAME ${CMAKE_PROJECT_NAME})

@@ -286,12 +286,14 @@ bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event)
 
     switch (event->type)
     {
-        // case SDL_MOUSEMOTION:
-        // {
-        //     ImVec2 mouse_pos((float)event->motion.x, (float)event->motion.y);
-        //     io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
-        //     return true;
-        // }
+#ifndef SAILFISHOS
+        case SDL_MOUSEMOTION:
+        {
+            ImVec2 mouse_pos((float)event->motion.x, (float)event->motion.y);
+            io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+            return true;
+        }
+#endif
         case SDL_MOUSEWHEEL:
         {
             //IMGUI_DEBUG_LOG("wheel %.2f %.2f, precise %.2f %.2f\n", (float)event->wheel.x, (float)event->wheel.y, event->wheel.preciseX, event->wheel.preciseY);

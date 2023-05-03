@@ -133,6 +133,12 @@ static struct imgui_touch_state_t {
 		window = w;
 	}
 } touch_fingers[TouchItem_Count];
+
+#ifdef USE_LIPSTICK_FBO
+std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)> finger_pos_current_handler;
+std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)> finger_pos_landscape_handler;
+std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)> finger_pos_inverted_landscape_handler;
+#endif
 #endif
 
 static const sysEvent_t default_res_none = { SE_NONE, 0, 0, 0, NULL };
@@ -175,35 +181,42 @@ static int joy_axis_state[] = {0,0,0,0,0};
 
 #define JOYSTICK_DEAD_ZONE 8000
 #define JOYAXIS_MAX 32768
-// // analog axes
-// #define JOY_LEFT_STICK_XAXIS    0
-// #define JOY_LEFT_STICK_YAXIS    1
-// #define JOY_RIGHT_STICK_XAXIS   2
-// #define JOY_RIGHT_STICK_YAXIS   3
-// #define JOY_LEFT_SHOULDER       4
-// #define JOY_RIGHT_SHOULDER      5
-// // buttons
-// #define JOY_CROSS               0
-// #define JOY_CIRCLE              1
-// #define JOY_SQUARE              2
-// #define JOY_TRIANGLE            3
 
-// #define JOY_SELECT              4
-// #define JOY_PSBUTTON            5
-// #define JOY_START               6
+#ifndef SAILFISHOS
+// analog axes
+#define JOY_LEFT_STICK_XAXIS    0
+#define JOY_LEFT_STICK_YAXIS    1
+#define JOY_RIGHT_STICK_XAXIS   2
+#define JOY_RIGHT_STICK_YAXIS   3
+#define JOY_LEFT_SHOULDER       4
+#define JOY_RIGHT_SHOULDER      5
+// buttons
+#define JOY_CROSS               0
+#define JOY_CIRCLE              1
+#define JOY_SQUARE              2
+#define JOY_TRIANGLE            3
 
-// #define JOY_LEFT_STICK          7
-// #define JOY_RIGHT_STICK         8
-// #define JOY_LEFT_TRIGGER        9
-// #define JOY_RIGHT_TRIGGER       10
+#define JOY_SELECT              4
+#define JOY_PSBUTTON            5
+#define JOY_START               6
 
-// #define JOY_UP                  11
-// #define JOY_DOWN                12
-// #define JOY_LEFT                13
-// #define JOY_RIGHT               14
+#define JOY_LEFT_STICK          7
+#define JOY_RIGHT_STICK         8
+#define JOY_LEFT_TRIGGER        9
+#define JOY_RIGHT_TRIGGER       10
 
-// #define JOY_TOUCHPAD_BUTTON     15
+#define JOY_UP                  11
+#define JOY_DOWN                12
+#define JOY_LEFT                13
+#define JOY_RIGHT               14
 
+#define JOY_HUP                  1
+#define JOY_HDOWN                4
+#define JOY_HLEFT                8
+#define JOY_HRIGHT               2
+
+#define JOY_TOUCHPAD_BUTTON     15
+#else
 // sailfish analog axes
 #define JOY_LEFT_STICK_XAXIS    0
 #define JOY_LEFT_STICK_YAXIS    1
@@ -237,7 +250,7 @@ static int joy_axis_state[] = {0,0,0,0,0};
 #define JOY_HRIGHT               2
 
 #define JOY_TOUCHPAD_BUTTON     15
-
+#endif
 
 #define JOY_LOOK_SENSE 30.0f
 #define JOY_AXIS_RMOUSE(value) (int)(((float)value / (float)(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE)) * JOY_LOOK_SENSE);
@@ -791,6 +804,41 @@ void Sys_InitInput() {
 		ResetTouchFingerState();
 		return default_res_none;
 	});
+
+#ifdef USE_LIPSTICK_FBO
+	if (glConfig.vidWidthReal > glConfig.vidHeightReal) {
+		finger_pos_landscape_handler = std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)>(
+			[](SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos){
+				finger_pos.x = tfinger.x * glConfig.vidWidth;
+				finger_pos.y = tfinger.y * glConfig.vidHeight;
+				finger_dpos.x = tfinger.dx * glConfig.vidWidth * 0.5;
+				finger_dpos.y = tfinger.dy * glConfig.vidHeight * 0.5;
+			});
+		finger_pos_inverted_landscape_handler = std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)>(
+			[](SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos){
+				finger_pos.x = (1.0 - tfinger.x) * glConfig.vidWidth;
+				finger_pos.y = (1.0 - tfinger.y) * glConfig.vidHeight;
+				finger_dpos.x = -tfinger.dx * glConfig.vidWidth * 0.5;
+				finger_dpos.y = -tfinger.dy * glConfig.vidHeight * 0.5;
+			});
+	} else {
+		finger_pos_landscape_handler = std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)>(
+			[](SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos){
+				finger_pos.x = (1.0f - tfinger.y) * glConfig.vidWidth;
+				finger_pos.y = tfinger.x * glConfig.vidHeight;
+				finger_dpos.x = -tfinger.dy * glConfig.vidWidth * 0.5;
+				finger_dpos.y = tfinger.dx * glConfig.vidHeight * 0.5;
+			});
+		finger_pos_inverted_landscape_handler = std::function<void(SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos)>(
+			[](SDL_TouchFingerEvent &tfinger, ImVec2 &finger_pos, ImVec2 &finger_dpos){
+				finger_pos.x = tfinger.y * glConfig.vidWidth;
+				finger_pos.y = (1.0f - tfinger.x) * glConfig.vidHeight;
+				finger_dpos.x = tfinger.dy * glConfig.vidWidth * 0.5;
+				finger_dpos.y = -tfinger.dx * glConfig.vidHeight * 0.5;
+			});
+	}
+	finger_pos_current_handler = finger_pos_landscape_handler;
+#endif
 #endif
 }
 
@@ -1012,11 +1060,14 @@ sysEvent_t Sys_GetEvent() {
 			continue; // handle next event
 #ifdef USE_LIPSTICK_FBO
 		case SDL_DISPLAYEVENT:
-			if( ev.display.event != SDL_DISPLAYEVENT_ORIENTATION )
+			if (ev.display.event != SDL_DISPLAYEVENT_ORIENTATION)
 				continue;
 			common->Warning("SDL_DISPLAYEVENT_ORIENTATION: %i", ev.display.data1);
-			if( ev.display.data1 == SDL_ORIENTATION_LANDSCAPE 
-			    || ev.display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED ) {
+			if (ev.display.data1 == SDL_ORIENTATION_LANDSCAPE) {
+				finger_pos_current_handler = finger_pos_landscape_handler;
+				GLimp_SetWindowOrientation((SDL_DisplayOrientation)ev.display.data1);
+			} else if (ev.display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED) {
+				finger_pos_current_handler = finger_pos_inverted_landscape_handler;
 				GLimp_SetWindowOrientation((SDL_DisplayOrientation)ev.display.data1);
 			}
 			break;
@@ -1173,7 +1224,7 @@ sysEvent_t Sys_GetEvent() {
 			}
 #endif
 			if ( in_relativeMouseMode ) {
-#if defined(IMGUI_TOUCHSCREEN) && defined(LIPSTICK_FBO)
+#if defined(IMGUI_TOUCHSCREEN) && defined(USE_LIPSTICK_FBO)
 				continue;
 #endif
 				res.evType = SE_MOUSE;
@@ -1234,24 +1285,25 @@ sysEvent_t Sys_GetEvent() {
 				ImVec2 touch_pos;
 				ImVec2 rel_pos;
 				bool any_contains = false;
-				#ifdef USE_LIPSTICK_FBO
-				if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
-					touch_pos.x = (1.0f - ev.tfinger.y) * glConfig.vidWidth;
-					touch_pos.y = ev.tfinger.x * glConfig.vidHeight;
-					rel_pos.x = -ev.tfinger.dy * glConfig.vidWidth * 0.5;
-					rel_pos.y = ev.tfinger.dx * glConfig.vidHeight * 0.5;
-				} else {
-					touch_pos.x = ev.tfinger.y * glConfig.vidWidth;
-					touch_pos.y = (1.0f - ev.tfinger.x) * glConfig.vidHeight;
-					rel_pos.x = ev.tfinger.dy * glConfig.vidWidth * 0.5;
-					rel_pos.y = -ev.tfinger.dx * glConfig.vidHeight * 0.5;
-				}
-				#else
+#ifdef USE_LIPSTICK_FBO
+				// if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
+				// 	touch_pos.x = (1.0f - ev.tfinger.y) * glConfig.vidWidth;
+				// 	touch_pos.y = ev.tfinger.x * glConfig.vidHeight;
+				// 	rel_pos.x = -ev.tfinger.dy * glConfig.vidWidth * 0.5;
+				// 	rel_pos.y = ev.tfinger.dx * glConfig.vidHeight * 0.5;
+				// } else {
+				// 	touch_pos.x = ev.tfinger.y * glConfig.vidWidth;
+				// 	touch_pos.y = (1.0f - ev.tfinger.x) * glConfig.vidHeight;
+				// 	rel_pos.x = ev.tfinger.dy * glConfig.vidWidth * 0.5;
+				// 	rel_pos.y = -ev.tfinger.dx * glConfig.vidHeight * 0.5;
+				// }
+				finger_pos_current_handler(ev.tfinger, touch_pos, rel_pos);
+#else
 				touch_pos.x = ev.tfinger.x;
 				touch_pos.y = ev.tfinger.y;
 				rel_pos.x = ev.tfinger.dx;
 				rel_pos.y = ev.tfinger.dy;
-				#endif
+#endif
 
 				for (int i = 0; i < TouchItem_Count; i++) {
 					if (!touch_fingers[i].window)

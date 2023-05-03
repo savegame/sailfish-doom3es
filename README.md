@@ -4,7 +4,8 @@
  - [X] Added statically linked SDL2 (patched for SailfishOS lipstick compositor)  
  - [X] Added framebuffer transformation for landscape mode in SailfishOS  
  - [ ] Added dbus MCE call for disable screen blanking, while game is running
- - [ ] Added imgui for use it in touch screen controls.
+ - [X] Added imgui for use it in touch screen controls.
+ - [X] Added imgui startup screen, where you can choose game data folder, and setup some settings
 
 # D3ES
 

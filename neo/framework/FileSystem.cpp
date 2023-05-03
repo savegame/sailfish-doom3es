@@ -3241,11 +3241,11 @@ idFileSystemLocal::OpenExplicitFileRead
 */
 idFile *idFileSystemLocal::OpenExplicitFileRead( const char *OSPath ) {
 	idFile_Permanent *f;
-
+#ifndef IMGUI_TOUCHSCREEN
 	if ( !searchPaths ) {
 		common->FatalError( "Filesystem call made without initialization\n" );
 	}
-
+#endif
 	if ( fs_debug.GetInteger() ) {
 		common->Printf( "idFileSystem::OpenExplicitFileRead: %s\n", OSPath );
 	}
@@ -3274,11 +3274,11 @@ idFileSystemLocal::OpenExplicitFileWrite
 */
 idFile *idFileSystemLocal::OpenExplicitFileWrite( const char *OSPath ) {
 	idFile_Permanent *f;
-
+#ifndef IMGUI_TOUCHSCREEN 
 	if ( !searchPaths ) {
 		common->FatalError( "Filesystem call made without initialization\n" );
 	}
-
+#endif
 	if ( fs_debug.GetInteger() ) {
 		common->Printf( "idFileSystem::OpenExplicitFileWrite: %s\n", OSPath );
 	}

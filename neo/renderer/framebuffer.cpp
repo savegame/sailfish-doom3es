@@ -125,7 +125,22 @@ static void createShaders (void)
 			}                                                              \n \
 			";
 #ifdef USE_LIPSTICK_FBO
-	const GLchar *fragSource = \
+	const GLchar *fragSource;
+	if(glConfig.vidWidthReal > glConfig.vidHeightReal) {
+		fragSource = \
+			"precision highp float;                                       \n \
+			varying vec2 v_texCoord;                                      \n \
+			uniform sampler2D s_texture;                                  \n \
+			uniform vec4 v_coordMax;                                      \n \
+			void main()                                                   \n \
+			{                                                             \n \
+				gl_FragColor = texture2D( s_texture, vec2(                \n \
+					v_coordMax[1] + v_texCoord.x * v_coordMax[3],         \n \
+					v_coordMax[0] + v_texCoord.y * v_coordMax[2]) );      \n \
+			}                                                             \n \
+			";
+	} else {
+		fragSource = \
 			"precision highp float;                                       \n \
 			varying vec2 v_texCoord;                                      \n \
 			uniform sampler2D s_texture;                                  \n \
@@ -137,6 +152,7 @@ static void createShaders (void)
 					v_coordMax[0] + v_texCoord.x * v_coordMax[2]) );      \n \
 			}                                                             \n \
 			";
+	}
 #else
 	const GLchar *fragSource = \
 			"precision mediump float;                                \n  \
@@ -174,6 +190,10 @@ void R_InitFrameBuffer()
 	{
 		common->Printf("Not using framebuffer\n");
 		return;
+	}
+
+	if(glConfig.vidWidthReal > glConfig.vidHeightReal) {
+		common->Printf("Device has native landscape resolution.\n");
 	}
 
 	glConfig.npotAvailable = false;
@@ -319,11 +339,17 @@ void R_FrameBufferEnd()
 #ifdef USE_LIPSTICK_FBO
 	switch(GLimp_GetWindowOrientation()) {
 	case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
-		glUniform4f(m_coordMaxLoc, 0, smax, tmax / smax, - smax / tmax);
+		if(glConfig.vidWidthReal > glConfig.vidHeightReal)
+			glUniform4f(m_coordMaxLoc, 0, 0, 1.0f, 1.0f);
+		else
+			glUniform4f(m_coordMaxLoc, 0, smax, tmax / smax, - smax / tmax);
 		break;
 	case SDL_ORIENTATION_LANDSCAPE:
 	default:
-		glUniform4f(m_coordMaxLoc, tmax, 0, - tmax / smax, smax / tmax);
+		if(glConfig.vidWidthReal > glConfig.vidHeightReal)
+			glUniform4f(m_coordMaxLoc, smax, tmax, - smax / tmax, - tmax / smax);
+		else
+			glUniform4f(m_coordMaxLoc, tmax, 0, - tmax / smax, smax / tmax);
 		break;
 	}
 #endif

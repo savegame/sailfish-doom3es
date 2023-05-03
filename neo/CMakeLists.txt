@@ -1153,12 +1153,14 @@ if(CORE)
 		message("Define USE_LIPSTICK_FBO")
 	endif()
 	if(IMGUI_TOUCHSCREEN) 
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_TOUCHSCREEN -DIMGUI_IMPL_OPENGL_ES2")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_TOUCHSCREEN -DIMGUI_IMPL_OPENGL_ES2 -lstdc++fs")
 		set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/imgui)
 		include_directories(
 			${IMGUI_DIR}
 			${IMGUI_DIR}/backends)
-		set(IMGUI_LIBRARY ${CMAKE_BINARY_DIR}/imgui/libimgui.a)
+		set(IMGUI_LIBRARY 
+			${CMAKE_BINARY_DIR}/imgui/libimgui.a 
+			stdc++fs)
 		message("Define IMGUI_TOUCHSCREEN")
 	endif()
 	if(SAILFISHOS)

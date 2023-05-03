@@ -375,7 +375,10 @@ try_again:
 			// creating the window succeeded, so adjust r_multiSamples to the value that was actually used
 			parms.multiSamples = multisamples;
 			r_multiSamples.SetInteger(multisamples);
-			int result = SDL_GameControllerAddMappingsFromFile("/home/defaultuser/.local/share/dhewm3/gamecontrollerdb.txt");
+			idStr path;
+			Sys_GetPath(PATH_BASE, path);
+			path += "/gamecontrollerdb.txt";
+			int result = SDL_GameControllerAddMappingsFromFile(path.c_str());
 			common->Warning("SDL Game controller: %i", result);
 
 			if (!SDL_WasInit(SDL_INIT_JOYSTICK)) {
@@ -771,13 +774,11 @@ try_again:
 		ImGui::SetWindowSize(imgui_key_settings, {44 * imgui_scale_factor, 44 * imgui_scale_factor}, ImGuiCond_Always);
 		idStr config_path;
 #ifdef SAILFISH_APPNAME
-		config_path = "/usr/share/";
-		config_path += SAILFISH_APPNAME;
-		config_path += "/res/settings_256.png";
+		Sys_GetPath(PATH_BASE, config_path);
 #else
 		Sys_GetPath(PATH_CONFIG, config_path);
-		config_path += "res/settings_256.png";
 #endif
+		config_path += "/res/settings_256.png";
 		R_LoadImageFile(config_path.c_str(), imgui_img_settings, img_width, img_height);
 	ImGui::End();
 

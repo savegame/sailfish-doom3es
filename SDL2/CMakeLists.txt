@@ -2769,9 +2769,15 @@ configure_file("${SDL2_SOURCE_DIR}/include/SDL_config.h.cmake"
 string(TOLOWER "${CMAKE_BUILD_TYPE}" lower_build_type)
 execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/include-config-${lower_build_type}")
 # 3. generate SDL_config in an build_type-dependent folder (which should be first in the include search path)
+if(SAILFISHOS)
+file(GENERATE
+    OUTPUT "${SDL2_BINARY_DIR}/include/SDL_config.h"
+    INPUT "${SDL2_BINARY_DIR}/SDL_config.h.intermediate")
+else()
 file(GENERATE
     OUTPUT "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>/SDL_config.h"
     INPUT "${SDL2_BINARY_DIR}/SDL_config.h.intermediate")
+endif()
 
 # Prepare the flags and remove duplicates
 if(EXTRA_LDFLAGS)

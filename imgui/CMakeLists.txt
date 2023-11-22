@@ -6,7 +6,7 @@ if(SAILFISHOS)
         set(SDL2_CONFIG_INCLUDE_SUFFIX "debug")
         set(SDL2_LIB_SUFFIX "d")
     else()
-        set(SDL2_CONFIG_INCLUDE_SUFFIX "relese")
+        set(SDL2_CONFIG_INCLUDE_SUFFIX "release")
         set(SDL2_LIB_SUFFIX "")
     endif()
     set(SDL2_INCLUDE_DIR 

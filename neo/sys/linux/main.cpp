@@ -95,11 +95,11 @@ const char* Posix_GetSavePath()
 static void SetSavePath()
 {
 	const char* s = getenv("XDG_DATA_HOME");
-#ifdef SAILFISH_APPNAME
+#ifdef SAILFISHOS
 	if (s)
-		D3_snprintfC99(save_path, sizeof(save_path), "%s/%s", s, SAILFISH_APPNAME);
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/ru.sashikknox/doom3es", s);
 	else
-		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/%s", getenv("HOME"), SAILFISH_APPNAME);
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/ru.sashikknox/doom3es", getenv("HOME"));
 #else
 	if (s)
 		D3_snprintfC99(save_path, sizeof(save_path), "%s/dhewm3", s);
@@ -245,11 +245,11 @@ bool Sys_GetPath(sysPath_t type, idStr &path) {
 
 	case PATH_CONFIG:
 		s = getenv("XDG_CONFIG_HOME");
-#ifdef SAILFISH_APPNAME
+#ifdef SAILFISHOS
 		if (s)
-			idStr::snPrintf(buf, sizeof(buf), "%s/%s", s, SAILFISH_APPNAME);
-		else
-			idStr::snPrintf(buf, sizeof(buf), "%s/.config/%s", getenv("HOME"), SAILFISH_APPNAME);
+			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/doom3es", s);
+		else // TODO: should be orgname plus appname ru.sashikknox/doom3es
+			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/doom3es", getenv("HOME"));
 #else
 		if (s)
 			idStr::snPrintf(buf, sizeof(buf), "%s/dhewm3", s);
@@ -507,9 +507,11 @@ int main(int argc, char **argv) {
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 		SDL_DisplayMode dm;
 		SDL_GetCurrentDisplayMode(0,&dm);
+		int w = dm.w < dm.h ? dm.w : dm.h;
+		int h = dm.w > dm.h ? dm.w : dm.h;
 		SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 		#ifdef SAILFISHOS
-		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, dm.w, dm.h, window_flags);
+		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, window_flags);
 		#else
 		SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, window_flags);
 		#endif

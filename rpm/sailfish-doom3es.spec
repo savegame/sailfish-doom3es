@@ -1,5 +1,6 @@
 %if "0%{?_special_name}" != "0"
-Name:  %_special_name
+#Name:  %_special_name
+Name:  ru.sashikknox.doom3es
 %else
 Name:  harbour-doom3es
 %endif
@@ -51,11 +52,11 @@ sed "s/__APPNAME__/%{name}/g" sailfish-doom3es.desktop.in>%{name}.desktop
 mkdir -p %{build_dir}
 cd %{build_dir}
 cmake \
-    -DCMAKE_BUILD_TYPE=Relese \
+    -DCMAKE_BUILD_TYPE=Release \
     -DSFOS_PACKAGE_NAME="%{name}" \
     -DSAILFISHOS=ON \
     ../
-%make_build
+%make_build 
 strip neo/base.so
 strip neo/d3xp.so
 strip neo/%{name}

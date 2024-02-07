@@ -23,7 +23,6 @@ Release:    1
 Group:      Amusements/Games
 License:    GPLv3
 Source0:    sailfish-doom3es-%{version}.tar.bz2
-Requires:   OpenAL
 BuildRequires: pkgconfig(openal)
 BuildRequires: cmake
 BuildRequires: dbus-devel
@@ -36,9 +35,11 @@ BuildRequires: pkgconfig(wayland-scanner)
 BuildRequires: pkgconfig(egl)
 BuildRequires: pkgconfig(glesv2)
 BuildRequires: pkgconfig(xkbcommon)
+BuildRequires: pkgconfig(gbm)
+BuildRequires: rsync
 
 %description
-Doom3 AuroraOS/SailfishOS port by sashikknox. Doom 3 made by Id software.
+Doom3 AuroraOS port by sashikknox. Doom 3 made by Id software.
 
 %prep
 # >> setup
@@ -70,6 +71,8 @@ rm -rf %{buildroot}
 cd %{build_dir}
 %make_install
 # >> install post
+# copy openal from build engine
+rsync -avP /usr/lib/libopenal.*  ${buildroot}%{_datadir}/%{name}/lib/
 # << install post
 
 # desktop-file-install --delete-original       \

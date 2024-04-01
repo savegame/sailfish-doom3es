@@ -17,6 +17,9 @@ Name:  harbour-doom3es
     %endif
 %endif
 
+%define __requires_exclude ^libopenal\\.so.*$
+%define __provides_exclude_from ^%{_datadir}/%{name}/lib/.*\\.so.*$
+
 Summary:    Doom3 AuroraOS/SailfishOS port by sashikknox
 Version:    1.5.3
 Release:    1
@@ -72,7 +75,7 @@ cd %{build_dir}
 %make_install
 # >> install post
 # copy openal from build engine
-rsync -avP /usr/lib/libopenal.*  ${buildroot}%{_datadir}/%{name}/lib/
+rsync -avP %{_libdir}/libopenal.so.1* %{buildroot}%{_datadir}/%{name}/lib/
 # << install post
 
 # desktop-file-install --delete-original       \

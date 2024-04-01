@@ -181,76 +181,11 @@ static int joy_axis_state[] = {0,0,0,0,0};
 
 #define JOYSTICK_DEAD_ZONE 8000
 #define JOYAXIS_MAX 32768
-
-#ifndef SAILFISHOS
-// analog axes
+// joy axis state index
 #define JOY_LEFT_STICK_XAXIS    0
 #define JOY_LEFT_STICK_YAXIS    1
 #define JOY_RIGHT_STICK_XAXIS   2
 #define JOY_RIGHT_STICK_YAXIS   3
-#define JOY_LEFT_SHOULDER       4
-#define JOY_RIGHT_SHOULDER      5
-// buttons
-#define JOY_CROSS               0
-#define JOY_CIRCLE              1
-#define JOY_SQUARE              2
-#define JOY_TRIANGLE            3
-
-#define JOY_SELECT              4
-#define JOY_PSBUTTON            5
-#define JOY_START               6
-
-#define JOY_LEFT_STICK          7
-#define JOY_RIGHT_STICK         8
-#define JOY_LEFT_TRIGGER        9
-#define JOY_RIGHT_TRIGGER       10
-
-#define JOY_UP                  11
-#define JOY_DOWN                12
-#define JOY_LEFT                13
-#define JOY_RIGHT               14
-
-#define JOY_HUP                  1
-#define JOY_HDOWN                4
-#define JOY_HLEFT                8
-#define JOY_HRIGHT               2
-
-#define JOY_TOUCHPAD_BUTTON     15
-#else
-// sailfish analog axes
-#define JOY_LEFT_STICK_XAXIS    0
-#define JOY_LEFT_STICK_YAXIS    1
-#define JOY_RIGHT_STICK_XAXIS   2
-#define JOY_RIGHT_STICK_YAXIS   5
-#define JOY_LEFT_SHOULDER       3
-#define JOY_RIGHT_SHOULDER      4
-// sailfish os buttons 
-#define JOY_SQUARE              0
-#define JOY_CROSS               1
-#define JOY_CIRCLE              2
-#define JOY_TRIANGLE            3
-
-#define JOY_SELECT              8
-#define JOY_PSBUTTON            12
-#define JOY_START               9
-
-#define JOY_LEFT_STICK          10
-#define JOY_RIGHT_STICK         11
-#define JOY_LEFT_TRIGGER        4
-#define JOY_RIGHT_TRIGGER       7
-
-#define JOY_UP                  6
-#define JOY_DOWN                5
-#define JOY_LEFT                13
-#define JOY_RIGHT               14
-
-#define JOY_HUP                  1
-#define JOY_HDOWN                4
-#define JOY_HLEFT                8
-#define JOY_HRIGHT               2
-
-#define JOY_TOUCHPAD_BUTTON     15
-#endif
 
 #define JOY_LOOK_SENSE 30.0f
 #define JOY_AXIS_RMOUSE(value) (int)(((float)value / (float)(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE)) * JOY_LOOK_SENSE);
@@ -1010,7 +945,7 @@ sysEvent_t Sys_GetEvent() {
 		} else {
 			joystick = SDL_JoystickOpen(0);
 		}
-		common->Printf("Handle joystick 0;\n");
+		common->Printf("Handle %s 0;\n", controller != NULL ? "controller" : "joystick");
 	}
 
 	static byte c = 0;
@@ -1286,17 +1221,6 @@ sysEvent_t Sys_GetEvent() {
 				ImVec2 rel_pos;
 				bool any_contains = false;
 #ifdef USE_LIPSTICK_FBO
-				// if (GLimp_GetWindowOrientation() == SDL_ORIENTATION_LANDSCAPE) {
-				// 	touch_pos.x = (1.0f - ev.tfinger.y) * glConfig.vidWidth;
-				// 	touch_pos.y = ev.tfinger.x * glConfig.vidHeight;
-				// 	rel_pos.x = -ev.tfinger.dy * glConfig.vidWidth * 0.5;
-				// 	rel_pos.y = ev.tfinger.dx * glConfig.vidHeight * 0.5;
-				// } else {
-				// 	touch_pos.x = ev.tfinger.y * glConfig.vidWidth;
-				// 	touch_pos.y = (1.0f - ev.tfinger.x) * glConfig.vidHeight;
-				// 	rel_pos.x = ev.tfinger.dy * glConfig.vidWidth * 0.5;
-				// 	rel_pos.y = -ev.tfinger.dx * glConfig.vidHeight * 0.5;
-				// }
 				finger_pos_current_handler(ev.tfinger, touch_pos, rel_pos);
 #else
 				touch_pos.x = ev.tfinger.x;
@@ -1418,8 +1342,9 @@ sysEvent_t Sys_GetEvent() {
 				continue; // handle next event
 			}
 		default:
-			if (Sys_joypadEvent(&ev, res) )
+			if (Sys_joypadEvent(&ev, res) ) {
 				return res;
+			}
 			// ok, I don't /really/ care about unknown SDL events. only uncomment this for debugging.
 			// common->Warning("unknown SDL event 0x%x", ev.type);
 			continue; // handle next event
@@ -1453,23 +1378,119 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 	switch (event->type)
 	{
 	case SDL_CONTROLLERAXISMOTION:    /**< Game controller axis motion */
-		common->Printf("ControllerEvent: SDL_CONTROLLERAXISMOTION axis: %i", event->caxis.axis);
-		break;
+		// common->Printf("ControllerEvent: SDL_CONTROLLERAXISMOTION axis: %i\n", event->caxis.axis);
+		{
+			int value = 0;
+			int pressed = 0;
+			float coef;
+			switch (event->caxis.axis) {
+				case SDL_CONTROLLER_AXIS_RIGHTY:
+					value = abs(event->caxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->caxis.value + (event->caxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+					joy_axis_state[JOY_RIGHT_STICK_YAXIS] = JOY_AXIS_RMOUSE(value);
+					break;
+				case SDL_CONTROLLER_AXIS_RIGHTX:
+					value = abs(event->caxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->caxis.value + (event->caxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+					joy_axis_state[JOY_RIGHT_STICK_XAXIS] = JOY_AXIS_RMOUSE(value);
+					break;
+				case SDL_CONTROLLER_AXIS_LEFTY:
+					value = abs(event->caxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->caxis.value + (event->caxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+					coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
+					joy_axis_state[JOY_LEFT_STICK_YAXIS] = -coef * 127;
+					joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, joy_axis_state[JOY_LEFT_STICK_YAXIS]));
+					break;
+				case SDL_CONTROLLER_AXIS_LEFTX:
+					value = abs(event->caxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->caxis.value + (event->caxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
+					coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
+					joy_axis_state[JOY_LEFT_STICK_XAXIS] = coef * 127;
+					joystick_polls.Append(mouse_poll_t(AXIS_SIDE, joy_axis_state[JOY_LEFT_STICK_XAXIS]));
+					break;
+				case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+					pressed = (event->caxis.value > (JOYSTICK_DEAD_ZONE)) ? 1 : 0;
+					// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i pressed %i", event->jaxis.axis, event->jaxis.value, pressed);
+					if (joy_shoulder_state[LEFT_SHOULDER] != pressed) {
+						joy_shoulder_state[LEFT_SHOULDER] = pressed;
+						res.evType = SE_KEY;
+						res.evValue = K_MOUSE2;
+						res.evValue2 = pressed;
+						mouse_polls.Append(mouse_poll_t(M_ACTION2, pressed));
+						result = true;
+					}
+					break;
+				case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
+					pressed = (event->caxis.value > (JOYSTICK_DEAD_ZONE)) ? 1 : 0;
+					// common->Printf("JoyEvent: SDL_CONTROLLER_AXIS_TRIGGERRIGHT axis: %i value %i pressed %i\n", event->caxis.axis, event->caxis.value, pressed);
+					if (joy_shoulder_state[RIGHT_SHOULDER] != pressed) {
+						joy_shoulder_state[RIGHT_SHOULDER] = pressed;
+						res.evType = SE_KEY;
+						res.evValue = K_MOUSE1;
+						res.evValue2 = pressed;
+						mouse_polls.Append(mouse_poll_t(M_ACTION1, pressed));
+						result = true;
+						common->Printf("DEBUG: fire\n");
+					}
+					break;
+				default: 
+					common->Printf("JoyEvent: SDL_CONTROLLERAXISMOTION axis: %i value %i\n", event->caxis.axis, event->caxis.value);
+			}
+			break;
+		}
 	case SDL_CONTROLLERBUTTONDOWN:    /**< Game controller button pressed */
-		// SDL_CONTROLLER_BUTTON_A;
-		common->Printf("ControllerEvent: SDL_CONTROLLERBUTTONDOWN button: %i", event->cbutton.button);
-		break;
 	case SDL_CONTROLLERBUTTONUP:      /**< Game controller button released */
-		common->Printf("ControllerEvent: SDL_CONTROLLERBUTTONUP button: %i", event->cbutton.button);
+		result = true;
+		switch(event->cbutton.button) {
+		case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+			if (event->cbutton.type != SDL_CONTROLLERBUTTONDOWN)
+				break;
+			// common->Printf("ControllerEvent: SDL_CONTROLLER_BUTTON_DPAD_ LEFT/RIGHT\n");
+			res.evValue = event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? K_MWHEELUP : K_MWHEELDOWN;
+			res.evValue2 = 1;
+			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? 1 : -1));
+			return  true;
+			break;
+		case SDL_CONTROLLER_BUTTON_A: // jump
+			res.evValue = K_SPACE;
+			res.evValue2 = event->cbutton.type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->cbutton.type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		case SDL_CONTROLLER_BUTTON_B: // reload
+			res.evValue = SDLK_r;
+			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		case SDL_CONTROLLER_BUTTON_Y: // flashlight
+			res.evValue = SDLK_f;
+			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		case SDL_CONTROLLER_BUTTON_X: // crounch
+		case SDL_CONTROLLER_BUTTON_LEFTSTICK:
+			res.evValue = SDLK_c;
+			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		case SDL_CONTROLLER_BUTTON_START:
+			res.evValue = K_ESCAPE;
+			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		case SDL_CONTROLLER_BUTTON_GUIDE: // PDA
+			res.evValue = K_TAB;
+			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+			break;
+		default: 
+			return false;
+		}
 		break;
 	case SDL_CONTROLLERDEVICEADDED:   /**< A new Game controller has been inserted into the system */
-		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEADDED");
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEADDED\n");
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED: /**< An opened Game controller has been removed */
-		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMOVED");
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMOVED\n");
 		break;
 	case SDL_CONTROLLERDEVICEREMAPPED:/**< The controller mapping was updated */
-		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMAPPED");
+		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEREMAPPED\n");
 		break;
 	case SDL_CONTROLLERTOUCHPADDOWN:  /**< Game controller touchpad was touched */
 		// common->Printf("ControllerEvent: SDL_CONTROLLERTOUCHPADDOWN");
@@ -1481,129 +1502,15 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 		// common->Printf("ControllerEvent: SDL_CONTROLLERTOUCHPADUP");
 		break;
 	case SDL_CONTROLLERSENSORUPDATE:  /**< Game controller sensor was updated */
-		common->Printf("ControllerEvent: SDL_CONTROLLERSENSORUPDATE %i : %f", event->csensor.sensor, event->csensor.data);
-		break;
-	case SDL_JOYAXISMOTION:          /**< Joystick axis motion */
-		//Motion on controller 0
-		// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i", event->jaxis.axis, event->jaxis.value);
-		if (event->jaxis.axis == JOY_RIGHT_STICK_YAXIS) {
-			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
-			joy_axis_state[JOY_RIGHT_STICK_YAXIS] = JOY_AXIS_RMOUSE(value);
-		} else if (event->jaxis.axis == JOY_RIGHT_STICK_XAXIS) {
-			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
-			joy_axis_state[JOY_RIGHT_STICK_XAXIS] = JOY_AXIS_RMOUSE(value);
-		} else if (event->jaxis.axis == JOY_LEFT_STICK_XAXIS) {
-			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
-			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
-			joy_axis_state[JOY_LEFT_STICK_XAXIS] = coef * 127;
-			joystick_polls.Append(mouse_poll_t(AXIS_SIDE, joy_axis_state[JOY_LEFT_STICK_XAXIS]));
-		} else if (event->jaxis.axis == JOY_LEFT_STICK_YAXIS) {
-			int value = abs(event->jaxis.value) < JOYSTICK_DEAD_ZONE ? 0 : (event->jaxis.value + (event->jaxis.value < 0 ? JOYSTICK_DEAD_ZONE : -JOYSTICK_DEAD_ZONE));
-			float coef = value / (float(JOYAXIS_MAX - JOYSTICK_DEAD_ZONE) * 0.8);
-			joy_axis_state[JOY_LEFT_STICK_YAXIS] = -coef * 127;
-			joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, joy_axis_state[JOY_LEFT_STICK_YAXIS]));
-		} else if (event->jaxis.axis == JOY_RIGHT_SHOULDER) {
-			int pressed = (event->jaxis.value > (JOYSTICK_DEAD_ZONE - JOYAXIS_MAX)) ? 1 : 0;
-			// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i pressed %i", event->jaxis.axis, event->jaxis.value, pressed);
-			if (joy_shoulder_state[RIGHT_SHOULDER] != pressed) {
-				joy_shoulder_state[RIGHT_SHOULDER] = pressed;
-				res.evType = SE_KEY;
-				res.evValue = K_MOUSE1;
-				res.evValue2 = pressed;
-				mouse_polls.Append(mouse_poll_t(M_ACTION1, pressed));
-				result = true;
-			}
-		} else if (event->jaxis.axis == JOY_LEFT_SHOULDER) {
-			int pressed = (event->jaxis.value > (JOYSTICK_DEAD_ZONE - JOYAXIS_MAX)) ? 1 : 0;
-			// common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i pressed %i", event->jaxis.axis, event->jaxis.value, pressed);
-			if (joy_shoulder_state[LEFT_SHOULDER] != pressed) {
-				joy_shoulder_state[LEFT_SHOULDER] = pressed;
-				res.evType = SE_KEY;
-				res.evValue = K_MOUSE2;
-				res.evValue2 = pressed;
-				mouse_polls.Append(mouse_poll_t(M_ACTION2, pressed));
-				result = true;
-			}
-		} else if ( abs(event->jaxis.value) > JOYSTICK_DEAD_ZONE) {
-			common->Printf("JoyEvent: SDL_JOYAXISMOTION axis: %i value %i", event->jaxis.axis, event->jaxis.value);
-		}
-		break;
-	case SDL_JOYBALLMOTION:          /**< Joystick trackball motion */
-		common->Printf("JoyEvent: SDL_JOYBALLMOTION\n");
-		break;
-	case SDL_JOYHATMOTION:           /**< Joystick hat position change */
-		if (event->jhat.hat != 0) {
-			common->Printf("JoyEvent: SDL_JOYHATMOTION hat: %i value %i", event->jhat.hat, event->jhat.value);
-			break;
-		}
-		switch(event->jhat.value) {
-		case JOY_HLEFT:
-		case JOY_HRIGHT:
-			// if (event->type != SDL_JOYBUTTONDOWN)
-			// 		break;
-			res.evValue = event->jhat.value == JOY_HRIGHT ? K_MWHEELUP : K_MWHEELDOWN;
-			res.evValue2 = 1;
-			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->jhat.value == JOY_HRIGHT ? 1 : -1));
-			break;
-		default:
-			common->Printf("JoyEvent: SDL_JOYHATMOTION hat: %i value %i", event->jhat.hat, event->jhat.value);
-		}
-		break;
-	case SDL_JOYBUTTONDOWN:          /**< Joystick button pressed */
-	case SDL_JOYBUTTONUP:            /**< Joystick button released */
-		res.evType = SE_KEY;
-		result = true;
-		switch(event->jbutton.button) {
-		case JOY_LEFT: //Wheel down
-		case JOY_RIGHT: //Wheel Up
-			if (event->type != SDL_JOYBUTTONDOWN)
-				break;
-			res.evValue = event->jbutton.button == JOY_RIGHT ? K_MWHEELUP : K_MWHEELDOWN;
-			res.evValue2 = 1;
-			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->jbutton.button == JOY_RIGHT ? 1 : -1));
-			break;
-		case JOY_CIRCLE: // R - reaload
-			res.evValue = SDLK_r;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		case JOY_TRIANGLE: // F - flashlight
-			res.evValue = SDLK_f;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		case JOY_SELECT: // Tab - Show PDA
-			res.evValue = K_TAB;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		case JOY_START: // ESC - Open/Close menu
-			res.evValue = K_ESCAPE;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		case JOY_CROSS: // SPACE - Jump
-			res.evValue = K_SPACE;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		case JOY_RIGHT_STICK: // C - Crounch
-			res.evValue = SDLK_c;
-			res.evValue2 = event->type == SDL_JOYBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_JOYBUTTONDOWN));
-			break;
-		default:
-			result = false;
-			common->Printf("JoyEvent: %s %i", (event->type == SDL_JOYBUTTONDOWN ? "SDL_JOYBUTTONDOWN" : "SDL_JOYBUTTONUP"), event->jbutton.button);
-		}
+		common->Printf("ControllerEvent: SDL_CONTROLLERSENSORUPDATE %i : %f\n", event->csensor.sensor, event->csensor.data);
 		break;
 	case SDL_JOYDEVICEADDED:         /**< A new joystick has been inserted into the system */
-		common->Printf("JoyEvent: SDL_JOYDEVICEADDED\n");
 		if (!joystick && !controller) {
 			common->Printf("JoyEvent: Try handle %i joystick.n", event->jdevice.which);
 			if (SDL_IsGameController(event->jdevice.which)) {
 				controller = SDL_GameControllerOpen(event->jdevice.which);
 			} else {
+				common->Printf("JoyEvent: SDL_JOYDEVICEADDED\n");
 				joystick = SDL_JoystickOpen(event->jdevice.which);
 			}
 		}

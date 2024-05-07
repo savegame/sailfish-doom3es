@@ -169,9 +169,11 @@ struct mouse_poll_t {
 	}
 };
 
+typedef mouse_poll_t joypad_poll_t;
+
 static idList<kbd_poll_t> kbd_polls;
 static idList<mouse_poll_t> mouse_polls;
-static idList<mouse_poll_t> joystick_polls;
+static idList<joypad_poll_t> joystick_polls;
 static idList<mouse_poll_t> imgui_polls;
 
 static SDL_Joystick *joystick = NULL;
@@ -624,21 +626,21 @@ void Sys_InitInput() {
 	touch_fingers[TouchItem_LeftSide].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
 		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
 		if (ev.type == SDL_FINGERUP) {
-			joystick_polls.Append(mouse_poll_t(AXIS_SIDE, 0));
-			joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, 0));
+			joystick_polls.Append(joypad_poll_t(AXIS_SIDE, 0));
+			joystick_polls.Append(joypad_poll_t(AXIS_FORWARD, 0));
 			return default_res_none;
 		}
 		int side_state = (float)(current_pos.x - touch_fingers[TouchItem_LeftSide].press_pos.x) * 3.5f;
 		int forward_state = (float)(current_pos.y - touch_fingers[TouchItem_LeftSide].press_pos.y) * 3.5f;
-		joystick_polls.Append(mouse_poll_t(AXIS_SIDE, side_state));
-		joystick_polls.Append(mouse_poll_t(AXIS_FORWARD, -forward_state));
+		joystick_polls.Append(joypad_poll_t(AXIS_SIDE, side_state));
+		joystick_polls.Append(joypad_poll_t(AXIS_FORWARD, -forward_state));
 		return default_res_none;
 	});
 	touch_fingers[TouchItem_RightSide].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
 		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
 		(void)ev;
-		mouse_polls.Append(mouse_poll_t(M_DELTAX, relative_pos.x * 5));
-		mouse_polls.Append(mouse_poll_t(M_DELTAY, relative_pos.y * 5));
+		mouse_polls.Append(joypad_poll_t(M_DELTAX, relative_pos.x * 5));
+		mouse_polls.Append(joypad_poll_t(M_DELTAY, relative_pos.y * 5));
 		return default_res_none;
 	});
 	touch_fingers[TouchItem_ESC].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
@@ -1373,7 +1375,7 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 	static int LEFT_SHOULDER = 0;
 	static int RIGHT_SHOULDER = 1;
 	static int joy_shoulder_state[] = {0,0};
-	static const int JOYSTICK_025_PRESS = JOYAXIS_MAX * 0.25;
+	// static const int JOYSTICK_025_PRESS = JOYAXIS_MAX * 0.25;
 	
 	switch (event->type)
 	{
@@ -1426,7 +1428,6 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 						res.evValue2 = pressed;
 						mouse_polls.Append(mouse_poll_t(M_ACTION1, pressed));
 						result = true;
-						common->Printf("DEBUG: fire\n");
 					}
 					break;
 				default: 
@@ -1436,53 +1437,107 @@ bool Sys_joypadEvent(SDL_Event *event, sysEvent_t &res) {
 		}
 	case SDL_CONTROLLERBUTTONDOWN:    /**< Game controller button pressed */
 	case SDL_CONTROLLERBUTTONUP:      /**< Game controller button released */
-		result = true;
-		switch(event->cbutton.button) {
-		case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-			if (event->cbutton.type != SDL_CONTROLLERBUTTONDOWN)
-				break;
-			// common->Printf("ControllerEvent: SDL_CONTROLLER_BUTTON_DPAD_ LEFT/RIGHT\n");
-			res.evValue = event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? K_MWHEELUP : K_MWHEELDOWN;
-			res.evValue2 = 1;
-			mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? 1 : -1));
-			return  true;
-			break;
-		case SDL_CONTROLLER_BUTTON_A: // jump
-			res.evValue = K_SPACE;
-			res.evValue2 = event->cbutton.type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->cbutton.type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		case SDL_CONTROLLER_BUTTON_B: // reload
-			res.evValue = SDLK_r;
-			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		case SDL_CONTROLLER_BUTTON_Y: // flashlight
-			res.evValue = SDLK_f;
-			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		case SDL_CONTROLLER_BUTTON_X: // crounch
-		case SDL_CONTROLLER_BUTTON_LEFTSTICK:
-			res.evValue = SDLK_c;
-			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		case SDL_CONTROLLER_BUTTON_START:
-			res.evValue = K_ESCAPE;
-			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		case SDL_CONTROLLER_BUTTON_GUIDE: // PDA
-			res.evValue = K_TAB;
-			res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
-			kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
-			break;
-		default: 
+		
+		if (event->cbutton.button <= SDL_CONTROLLER_BUTTON_INVALID || event->cbutton.button > SDL_CONTROLLER_BUTTON_MAX)
 			return false;
-		}
-		break;
+		
+		if (event->cbutton.button == SDL_CONTROLLER_BUTTON_START)
+			res.evValue = K_ESCAPE;
+		else
+			res.evValue = K_JOY1 + event->cbutton.button;
+		res.evType = SE_KEY;
+		res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		return true;
+
+		/** Map all gamepad buttons to any keyboard button, 
+		 * to allow setup it in settings->controls
+		 * */
+		// switch(event->cbutton.button) {
+		// case SDL_CONTROLLER_BUTTON_A: // jump
+		// 	res.evValue = K_SPACE;
+		// 	res.evValue2 = event->cbutton.type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->cbutton.type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_B: // reload
+		// 	res.evValue = SDLK_r;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_X: // crounch
+		// 	res.evValue = SDLK_c;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_Y: // flashlight
+		// 	res.evValue = SDLK_f;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_BACK:
+		// 	// res.evValue = SDLK_k;
+		// 	res.evValue = K_JOY1;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_GUIDE: // PDA
+		// 	res.evValue = K_TAB;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_START: //ESC
+		// 	res.evValue = K_ESCAPE;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_LEFTSTICK:
+		// 	// res.evValue = SDLK_a;
+		// 	res.evValue = K_JOY2;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
+		// 	// res.evValue = SDLK_b;
+		// 	res.evValue = K_JOY1 + event->cbutton.button;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+		// 	res.evValue = SDLK_d;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+		// 	res.evValue = SDLK_e;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_DPAD_UP:
+		// 	res.evValue = SDLK_g;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+		// 	res.evValue = SDLK_h;
+		// 	res.evValue2 = event->type == SDL_CONTROLLERBUTTONDOWN ? 1 : 0;
+		// 	kbd_polls.Append(kbd_poll_t(res.evValue, event->type == SDL_CONTROLLERBUTTONDOWN));
+		// 	break;
+		// case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+		// case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+		// 	if (event->cbutton.type != SDL_CONTROLLERBUTTONDOWN)
+		// 		break;
+		// 	// common->Printf("ControllerEvent: SDL_CONTROLLER_BUTTON_DPAD_ LEFT/RIGHT\n");
+		// 	res.evValue = event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? K_MWHEELUP : K_MWHEELDOWN;
+		// 	res.evValue2 = 1;
+		// 	mouse_polls.Append(mouse_poll_t(M_DELTAZ, event->cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT ? 1 : -1));
+		// 	return  true;
+		// 	break;
+		// default: 
+		// 	if (event->cbutton.type == SDL_CONTROLLERBUTTONDOWN)
+		// 		common->Printf("Unhandled SDL_CONTROLLER_BUTTON: \n", event->cbutton.button);
+		// 	return false;
+		// }
+		// break;
 	case SDL_CONTROLLERDEVICEADDED:   /**< A new Game controller has been inserted into the system */
 		common->Printf("ControllerEvent: SDL_CONTROLLERDEVICEADDED\n");
 		break;

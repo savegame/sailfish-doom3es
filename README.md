@@ -1,11 +1,41 @@
-# SailfishOS Port
+# AuroraOS Port
+## Changes
 
  - [X] Added Joypad support (bindings are tested with DualShock4 + Xperia 10iii SFOS 4.5)  
  - [X] Added statically linked SDL2 (patched for SailfishOS lipstick compositor)  
  - [X] Added framebuffer transformation for landscape mode in SailfishOS  
  - [ ] Added dbus MCE call for disable screen blanking, while game is running
  - [X] Added imgui for use it in touch screen controls.
- - [X] Added imgui startup screen, where you can choose game data folder, and setup some settings
+ - [X] Added imgui startup screen, where you can choose game data folder
+
+## Build
+ - download and install [AuroraOS SDK](https://developer.auroraos.ru/doc/software_development/sdk/downloads)
+ - first list you current targets, and choose what ypu need
+   ```
+   ~/AuroraOS/bin/sfdk engine exec sb2-config -l
+   ```
+   It should list avaliable targets with snapshots (snapshot with *.default* prefix)
+   ```sh
+   AuroraOS-5.0.0.60-base-aarch64.default
+   AuroraOS-5.0.0.60-base-aarch64
+   AuroraOS-5.0.0.60-base-armv7hl.default
+   AuroraOS-5.0.0.60-base-armv7hl
+   AuroraOS-5.0.0.60-base-x86_64.default
+   AuroraOS-5.0.0.60-base-x86_64
+   ```
+   Choose `AuroraOS-5.0.0.60-base-armv7hl` as target.
+ - build an RPM
+   ```sh
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build-init
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" prepare
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build
+   # run build step twice, because of bug in my cmake project  :-]
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build
+   ```
+ - sign RPM with *developer* key form [Developer.AuroraOS.ru](https://developer.auroraos.ru/doc/software_development/guides/package_signing) ([regular_key.pem](https://developer.auroraos.ru/static/regular_key.pem), [regular_cert.pem](https://developer.auroraos.ru/static/regular_cert.pem))
+   ```sh
+   ~/AuroraOS/bin/sfdk engine exec rpm-signexternal sign -c regular_cert.pem -k regular_key.pem RPMS/ru.sashikknox.doom3es-*
+   ```
 
 # D3ES
 

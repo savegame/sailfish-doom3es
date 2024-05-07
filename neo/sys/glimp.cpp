@@ -654,7 +654,7 @@ try_again:
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 	io.DisplaySize.x = glConfig.vidWidth;
 	io.DisplaySize.y = glConfig.vidHeight;
 
@@ -709,12 +709,6 @@ try_again:
 		ImGui::SetWindowPos (imgui_key_quickload, {glConfig.vidWidth - 153 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
 		ImGui::SetWindowSize(imgui_key_quickload, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
 		ImGui::Text("load");
-	ImGui::End();
-
-	ImGui::Begin(imgui_key_esc, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 
-		ImGui::SetWindowPos(imgui_key_esc, {glConfig.vidWidth * 0.5 - 25 * imgui_scale_factor, 2 * imgui_scale_factor}, ImGuiCond_Always);
-		ImGui::SetWindowSize(imgui_key_esc, {35 * imgui_scale_factor, 27 * imgui_scale_factor}, ImGuiCond_Always);
-		ImGui::Text("ESC");
 	ImGui::End();
 
 	ImGui::Begin(imgui_key_fire, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration); 

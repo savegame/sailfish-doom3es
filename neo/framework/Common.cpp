@@ -136,7 +136,7 @@ class idCommonLocal : public idCommon {
 public:
 								idCommonLocal( void );
 
-	virtual void				Init( int argc, char **argv );
+	virtual void				Init( int argc, const char **argv ) override;
 	virtual void				Shutdown( void );
 	virtual void				Quit( void );
 	virtual bool				IsInitialized( void ) const;
@@ -201,7 +201,7 @@ private:
 	void						InitRenderSystem( void );
 	void						InitSIMD( void );
 	bool						AddStartupCommands( void );
-	void						ParseCommandLine( int argc, char **argv );
+	void						ParseCommandLine( int argc, const char **argv );
 	void						ClearCommandLine( void );
 	bool						SafeMode( void );
 	void						CheckToolMode( void );
@@ -807,9 +807,8 @@ idCmdArgs	com_consoleLines[MAX_CONSOLE_LINES];
 idCommonLocal::ParseCommandLine
 ==================
 */
-void idCommonLocal::ParseCommandLine( int argc, char **argv ) {
+void idCommonLocal::ParseCommandLine( int argc, const char **argv ) {
 	int i;
-
 	com_numConsoleLines = 0;
 	// API says no program path
 	for ( i = 0; i < argc; i++ ) {
@@ -2795,7 +2794,7 @@ static unsigned int AsyncTimer(unsigned int interval, void *) {
 #include "../sys/win32/win_local.h" // for Conbuf_AppendText()
 #endif // _WIN32
 
-static bool checkForHelp(int argc, char **argv)
+static bool checkForHelp(int argc, const char **argv)
 {
 	const char* helpArgs[] = { "--help", "-h", "-help", "-?", "/?" };
 	const int numHelpArgs = sizeof(helpArgs)/sizeof(helpArgs[0]);
@@ -2888,7 +2887,13 @@ static bool checkForHelp(int argc, char **argv)
 idCommonLocal::Init
 =================
 */
-void idCommonLocal::Init( int argc, char **argv ) {
+void idCommonLocal::Init( int argc, const char **argv ) {
+	//	DEBUG
+	fprintf(stderr, "Parse command line:\n");
+	for (int i = 0; i < argc; i++) {
+		fprintf(stderr,"argv[%i]: %s\n", i, argv[i]);
+	}
+	// DEBUG
 
 	// in case UINTPTR_MAX isn't defined (or wrong), do a runtime check at startup
 	if ( D3_SIZEOFPTR != sizeof(void*) ) {

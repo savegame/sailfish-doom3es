@@ -1,8 +1,14 @@
-%if "0%{?_special_name}" != "0"
-#Name:  %_special_name
-Name:  ru.sashikknox.doom3es
-%else
+%if "0%{?_harbour}" == "1"
 Name:  harbour-doom3es
+%define firejail_section X-Sailjail
+%else
+Name:  ru.sashikknox.doom3es
+%define firejail_section X-Application
+%if "0%{?_oldaurora}" 
+%define xauroraapp "\#[X-Aurora-Application]\#IconMode=Crop"
+%else
+%define xauroraapp ""
+%endif
 %endif
 
 %define build_dir $RPM_BUILD_ROOT/build
@@ -13,7 +19,7 @@ Name:  harbour-doom3es
     %ifarch aarch64
         %global build_dir build_aarch64
     %else
-        %global build_dir build_x86
+        %global build_dir build_x86_64
     %endif
 %endif
 
@@ -27,8 +33,9 @@ Group:      Amusements/Games
 License:    GPLv3
 Source0:    sailfish-doom3es-%{version}.tar.bz2
 BuildRequires: pkgconfig(openal)
+BuildRequires: pkgconfig(libcurl)
 BuildRequires: cmake
-BuildRequires: dbus-devel
+BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(mce)
 BuildRequires: pkgconfig(wayland-egl)
 BuildRequires: pkgconfig(wayland-client)
@@ -51,8 +58,11 @@ Doom3 AuroraOS port by sashikknox. Doom 3 made by Id software.
 
 %build
 # >> build pre
-# << build pre
 sed "s/__APPNAME__/%{name}/g" sailfish-doom3es.desktop.in>%{name}.desktop
+sed -i "s/__FIREJAIL__/%{firejail_section}/g" %{name}.desktop
+sed -i "s/__X_AURORA_APP__/%{xauroraapp}/g" %{name}.desktop
+sed -i "s/#/\n/g" %{name}.desktop
+# << build pre
 mkdir -p %{build_dir}
 cd %{build_dir}
 cmake \

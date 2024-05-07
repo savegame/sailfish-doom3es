@@ -340,7 +340,7 @@ inline void ImGui::FileBrowser::Display()
     }
     if(flags_ & ImGuiFileBrowserFlags_NoModal)
     {
-        if(!BeginPopup(openLabel_.c_str()))
+        if(!BeginPopup(openLabel_.c_str(), ImGuiWindowFlags_NoMove))
         {
             return;
         }

@@ -1132,11 +1132,19 @@ endif()
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX neo FILES ${src_idlib})
 
 if(CORE)
+	if(IMGUI_TOUCHSCREEN)
+		set(src_launcher
+			sys/linux/launcher/launcher.cpp
+		)
+	else()
+		set(src_launcher "")
+	endif()
 	add_executable(${DHEWM3BINARY} WIN32 MACOSX_BUNDLE
 		${src_core}
 		${src_sys_base}
 		${src_sys_core}
 		${src_editor_tools}
+		${src_launcher}
 	)
 	
 	if(MSVC AND CMAKE_MAJOR_VERSION GREATER 3 OR ( CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 6 ))

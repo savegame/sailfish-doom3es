@@ -88,6 +88,8 @@ popd
 # copy openal from build engine
 install -D %{_libdir}/libopenal.so.1* -t %{buildroot}%{_datadir}/%{name}/lib/
 install -m 655 -D base/gamecontrollerdb.txt -t %{buildroot}%{_datadir}/%{name}/
+install -m 655 -D icons/512.png %{buildroot}%{_datadir}/%{name}/res/512.png
+install -m 655 -D res/sashikknox.png -t %{buildroot}%{_datadir}/%{name}/res/
 # << install post
 
 # desktop-file-install --delete-original       \

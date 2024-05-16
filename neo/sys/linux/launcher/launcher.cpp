@@ -6,6 +6,7 @@
 #include "framework/Session_local.h"
 #include "framework/FileSystem.h"
 #include "imfilebrowser.h"
+#include "renderer/Image.h"
 #include <SDL.h>
 #include <vector>
 #include <list>
@@ -18,6 +19,13 @@ public:
         return data;
     }
 };
+
+struct _LImage {
+    int w = 0;
+    int h = 0;
+    GLuint texture = 0;
+};
+typedef _LImage LImage;
 
 struct SettingsValue {
 public:
@@ -54,6 +62,7 @@ public:
     idStr description;
     const int uid = -1;
     static int last_uid;
+    bool save = true; // should it save to settings
 };
 
 int SettingsValue::last_uid = -1;
@@ -78,6 +87,10 @@ public:
     int button_height = 160;
     int tabIndex = 0;
     int graphicsShowDescription = -1; // id to show description
+    float dpmm = 1.0f;
+
+    LImage logo512;
+    LImage avatar;
 
     char *get_num(int num) {
         idStr *str = new idStr(num);
@@ -179,12 +192,67 @@ public:
         return *search;
     }
 
+    SettingsValue* get_setting_edit(idStr name) {
+        auto search = std::find_if(settings.begin(), settings.end(), [name](SettingsValue* current){
+            return current->name == name;
+        });
+        if (search == settings.end()) {
+            return nullptr;
+        }
+        return *search;
+    }
+
+    LImage load_image(idStr filename) {
+        LImage result;
+        idStr config_path;
+#ifdef SAILFISH_APPNAME
+        Sys_GetPath(PATH_BASE, config_path);
+#else
+        Sys_GetPath(PATH_CONFIG, config_path);
+#endif
+        if (filename.Find('/') != 0) 
+            config_path += "/";
+        config_path += filename;
+        if (!R_LoadImageFile(config_path.c_str(), result.texture, result.w, result.h))
+            printf("Image not found: %s\n", config_path.c_str());
+        return result;
+    }
+
+    bool CenterButton(const char* label, float alignment = 0.5f)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+
+        float size = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+        float avail = ImGui::GetContentRegionAvail().x;
+
+        float off = (avail - size) * alignment;
+        if (off > 0.0f)
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+        return ImGui::Button(label);
+    }
+
+    void CenterText(const char* label, float alignment = 0.5f)
+    {
+        ImGuiStyle& style = ImGui::GetStyle();
+
+        float size = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+        float avail = ImGui::GetContentRegionAvail().x;
+
+        float off = (avail - size) * alignment;
+        if (off > 0.0f)
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+        ImGui::Text(label);
+    }
+
     void save_settings();
     void load_settings();
     void default_settings();
 
     int render_tab0(bool &done);
     int render_tab1(bool &done);
+    int render_tab2_about(bool &done);
     int render_tabBar(bool &done);
     int render_resolutions();
 };
@@ -301,10 +369,18 @@ Launcher::Launcher(int argc, char** argv)
     // for now, just setup basepath in settins
     if (fs_basepath_index != -1)
         d_ptr->set_setting_string("fs_basepath", idStr(argv[fs_basepath_index]));
+
+    // calculate pixels per mm
+    SDL_GetDisplayDPI(0,nullptr, &d_ptr->dpmm, nullptr);
+    d_ptr->dpmm /= 25.4f;
+
     // default settungs
     d_ptr->default_settings();
     // load settings from file
     d_ptr->load_settings();
+    // load resources
+    d_ptr->logo512 = d_ptr->load_image("res/512.png");
+    d_ptr->avatar = d_ptr->load_image("res/sashikknox.png");
 }
 
 Launcher::~Launcher() 
@@ -327,16 +403,39 @@ int LauncherPrivate::render_tab0(bool &done)
     ImGuiIO& io = ImGui::GetIO();
     const SettingsValue *basePath = get_setting("fs_basepath");
 
-    ImGui::Text("Doom 3 path: %s", basePath && basePath->str_value ? basePath->str_value->c_str() : "null");               // Display some text (you can use a format strings too)
+    ImVec2 logoSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x};
 
-            
+    // float off = (logoSize.x - size) * alignment;
+    // if (off > 0.0f)
+    //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+    ImGui::Image((void*)(intptr_t)logo512.texture, logoSize, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
+
+    idStr message;
+
+    if (!basePath || !basePath->str_value || basePath->str_value->IsEmpty()) {
+        message = "Choose directory with original Doom 3 files. You can buy it on Steam";
+        ImGui::TextWrapped(message.c_str());
+        if (CenterButton("Go to Steam")) {
+            SDL_OpenURL("https://store.steampowered.com/app/208200/DOOM_3/");
+            SDL_SetClipboardText("https://store.steampowered.com/app/208200/DOOM_3/");
+        }
+    } else {
+        message = "Doom 3 path: ";
+        message += *(basePath->str_value);
+        ImGui::Text(message.c_str());
+    }
+
+
     if (ImGui::Button("Open path", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         fileDialog.Open();
     }
 
 
-    if (basePath && ImGui::Button("Continue to Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height)))
+    if (basePath && ImGui::Button("Continue to Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         done = true;
+        set_setting_string("fs_game", "");
+    }
 
     if (basePath && ImGui::Button("Continue to D3XP", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         done = true;
@@ -391,6 +490,34 @@ int LauncherPrivate::render_tab1(bool &done)
         }
     }
     ImGui::End();
+
+    ImGui::End();
+    return Launcher::Status::Ok;
+}
+
+int LauncherPrivate::render_tab2_about(bool &done) {
+    ImVec2 logoSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x};
+
+    logoSize.x = logoSize.y = dpmm * 20.0; // 20 mm size
+
+    // float off = (logoSize.x - size) * alignment;
+    // if (off > 0.0f)
+    //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+    ImGui::Image((void*)(intptr_t)avatar.texture, logoSize, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
+    ImGui::SameLine();
+    ImGui::TextWrapped("This port based on dhewm3. Port made by sashikknox");
+
+    CenterText("Source code:");
+    if (CenterButton("GitHub.com")) {
+        SDL_OpenURL("https://github.com/savegame/sailfish-doom3es");
+        SDL_SetClipboardText("https://github.com/savegame/sailfish-doom3es");
+    }
+
+    CenterText("Donate:");
+    if (CenterButton("Boosty.to/sashikknox")) {
+        SDL_OpenURL("https://boosty.to/sashikknox");
+        SDL_SetClipboardText("https://boosty.to/sashikknox");
+    }
 
     ImGui::End();
     return Launcher::Status::Ok;
@@ -490,6 +617,8 @@ int LauncherPrivate::render_resolutions()
 
 void LauncherPrivate::default_settings()
 {
+    set_setting_string("fs_game", "");
+    get_setting_edit("fs_game")->save = false;
     set_setting_int("r_mode", -1);
     set_setting_int("r_customHeight", nativeHeight);
     set_setting_int("r_customWidth", nativeWidth);
@@ -591,6 +720,12 @@ void LauncherPrivate::load_settings()
                     break;
                 case SettingsValue::Type::String:
                     f->ReadString(value_str);
+                    if (auto s = get_setting(name)) {
+                        if (!s->save) {
+                            printf("Skip %s : %s\n", name.c_str(), value_str.c_str() );
+                            continue;
+                        }
+                    }
                     set_setting_string(name, value_str);
                     printf("Read %s : %s\n", name.c_str(), value_str.c_str() );
                     break;
@@ -674,6 +809,9 @@ int Launcher::render()
                 break;
             case 1:
                 d_ptr->render_tab1(done);
+                break;
+            case 2:
+                d_ptr->render_tab2_about(done);
                 break;
             default: 
                 ImGui::End();

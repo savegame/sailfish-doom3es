@@ -424,9 +424,10 @@ const void	RB_SwapBuffers( const void *data ) {
 			ImGui::End();
 		}
 
-		ImGui::Begin(imgui_key_settings, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground); 
-			ImGui::Image((void*)(intptr_t)imgui_img_settings, ImGui::GetWindowSize(), ImVec2(0, 0), ImVec2(1.0, 1.0), ImVec4(1.0, 1.0, 1.0, 0.3));
-		ImGui::End();
+		// TODO: show settings button when need
+		// ImGui::Begin(imgui_key_settings, &show_window, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground); 
+		// 	ImGui::Image((void*)(intptr_t)imgui_img_settings, ImGui::GetWindowSize(), ImVec2(0, 0), ImVec2(1.0, 1.0), ImVec4(1.0, 1.0, 1.0, 0.3));
+		// ImGui::End();
 
 		ImGui::PopStyleColor();
 		ImGui::PopStyleVar();

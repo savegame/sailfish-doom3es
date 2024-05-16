@@ -3,9 +3,9 @@ Type=Application
 X-Nemo-Application-Type=no-invoker
 Icon=__APPNAME__
 Exec=/usr/bin/__APPNAME__
-Name=Doom 3
+Name=DIII4Aurora
 Keywords=doom;first;person;shooter;dark;singleplayer;multiplayer;
-Comment=sailfish-doom3es is a Doom 3 GPL source port for AuroraOS based on dhewm 3
+Comment=aurora-doom3es is a Doom 3 GPL source port for AuroraOS based on dhewm 3
 
 X-Desktop-File-Install-Version=0.26
 

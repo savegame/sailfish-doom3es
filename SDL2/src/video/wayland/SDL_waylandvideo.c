@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <xkbcommon/xkbcommon.h>
+#include <stdio.h>
 
 #include <wayland-util.h>
 
@@ -580,13 +581,13 @@ display_handle_done(void *data,
     SDL_zero(native_mode);
     native_mode.format = SDL_PIXELFORMAT_RGB888;
 
-    if (driverdata->transform & WL_OUTPUT_TRANSFORM_90) {
-        native_mode.w = driverdata->native_height;
-        native_mode.h = driverdata->native_width;
-    } else {
+    // if (driverdata->transform & WL_OUTPUT_TRANSFORM_90) {
+        // native_mode.w = driverdata->native_height;
+        // native_mode.h = driverdata->native_width;
+    // } else {
         native_mode.w = driverdata->native_width;
         native_mode.h = driverdata->native_height;
-    }
+    // }
     native_mode.refresh_rate = (int)SDL_round(driverdata->refresh / 1000.0); /* mHz to Hz */
     native_mode.driverdata   = driverdata->output;
 
@@ -602,13 +603,15 @@ display_handle_done(void *data,
     }
 
     /* xdg-output dimensions are already transformed, so no need to rotate. */
-    if (driverdata->has_logical_size || !(driverdata->transform & WL_OUTPUT_TRANSFORM_90)) {
-        desktop_mode.w = driverdata->width;
-        desktop_mode.h = driverdata->height;
-    } else {
-        desktop_mode.w = driverdata->height;
-        desktop_mode.h = driverdata->width;
-    }
+    // if (driverdata->has_logical_size /*|| !(driverdata->transform & WL_OUTPUT_TRANSFORM_90)*/) {
+    //     desktop_mode.w = driverdata->width;
+    //     desktop_mode.h = driverdata->height;
+    // } else {
+    //     desktop_mode.w = driverdata->height;
+    //     desktop_mode.h = driverdata->width;
+    // }
+    desktop_mode.w = native_mode.w;
+    desktop_mode.h = native_mode.h;
     desktop_mode.refresh_rate = (int)SDL_round(driverdata->refresh / 1000.0); /* mHz to Hz */
     desktop_mode.driverdata = driverdata->output;
 
@@ -625,18 +628,18 @@ display_handle_done(void *data,
     }
 
     /* Calculate the display DPI */
-    if (driverdata->transform & WL_OUTPUT_TRANSFORM_90) {
-        driverdata->hdpi = driverdata->physical_height ?
-            (((float) driverdata->height) * 25.4f / driverdata->physical_height) :
-            0.0f;
-        driverdata->vdpi = driverdata->physical_width ?
-            (((float) driverdata->width) * 25.4f / driverdata->physical_width) :
-            0.0f;
-        driverdata->ddpi = SDL_ComputeDiagonalDPI(driverdata->height,
-                                                  driverdata->width,
-                                                  ((float) driverdata->physical_height) / 25.4f,
-                                                  ((float) driverdata->physical_width) / 25.4f);
-    } else {
+    // if (driverdata->transform & WL_OUTPUT_TRANSFORM_90) {
+    //     driverdata->hdpi = driverdata->physical_height ?
+    //         (((float) driverdata->height) * 25.4f / driverdata->physical_height) :
+    //         0.0f;
+    //     driverdata->vdpi = driverdata->physical_width ?
+    //         (((float) driverdata->width) * 25.4f / driverdata->physical_width) :
+    //         0.0f;
+    //     driverdata->ddpi = SDL_ComputeDiagonalDPI(driverdata->height,
+    //                                               driverdata->width,
+    //                                               ((float) driverdata->physical_height) / 25.4f,
+    //                                               ((float) driverdata->physical_width) / 25.4f);
+    // } else {
         driverdata->hdpi = driverdata->physical_width ?
             (((float) driverdata->width) * 25.4f / driverdata->physical_width) :
             0.0f;
@@ -647,7 +650,7 @@ display_handle_done(void *data,
                                                   driverdata->height,
                                                   ((float) driverdata->physical_width) / 25.4f,
                                                   ((float) driverdata->physical_height) / 25.4f);
-    }
+    // }
 
     if (driverdata->index > -1) {
         dpy = SDL_GetDisplay(driverdata->index);

@@ -379,12 +379,19 @@ try_again:
 			Sys_GetPath(PATH_BASE, path);
 			path += "/gamecontrollerdb.txt";
 			int result = SDL_GameControllerAddMappingsFromFile(path.c_str());
-			common->Warning("SDL Game controller: %i", result);
+			common->Warning("Load SDL Game controller return: %i", result);
+
+			if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
+				if (SDL_Init(SDL_INIT_GAMECONTROLLER) == -1)
+					common->Warning("SDL Cannnot init Controller");
+				else
+					common->Warning("SDL Controller Initialized");
+			}
 
 			if (!SDL_WasInit(SDL_INIT_JOYSTICK)) {
 				if (SDL_Init(SDL_INIT_JOYSTICK) == -1)
 					common->Warning("SDL Cannnot init Joystick");
-				else 
+				else
 					common->Warning("SDL Joystick Initialized");
 			}
 

@@ -514,7 +514,7 @@ void LauncherPrivate::default_settings()
     set_setting_bool("r_skipSpecular", false, "use black for specular1");
     set_setting_bool("r_skipTranslucent", false, "skip the translucent interaction rendering");
     set_setting_bool("r_skipBump", false, "uses a flat surface instead of the bump map");
-    set_setting_bool("r_skipAmbient", false, "bypasses all non-interaction drawing. All screens in game will be off, even on weapons.");
+    // set_setting_bool("r_skipAmbient", false, "bypasses all non-interaction drawing. All screens in game will be off, even on weapons.");
     // set_setting_bool("r_skipDiffuse", false, "use black for diffuse");
     set_setting_bool("r_skipROQ", false, "skip ROQ decoding");
     set_setting_bool("r_skipPostProcess", false, "skip all post-process renderings");
@@ -527,6 +527,7 @@ void LauncherPrivate::default_settings()
     // set_setting_bool("r_skipSuppress", false, "ignore the per-view suppressions");
 
     set_setting_bool("r_multithread", true, "Multithread backend");
+    set_setting_bool("r_useETC1", false, "Compress texture data with ETC, saves GPU memory but can be very slow to load");
 }
 
 void LauncherPrivate::save_settings() 

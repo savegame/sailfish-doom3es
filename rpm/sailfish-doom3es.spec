@@ -81,11 +81,13 @@ strip neo/%{name}
 rm -rf %{buildroot}
 # >> install pre
 # << install pre
-cd %{build_dir}
+pushd %{build_dir}
 %make_install
+popd
 # >> install post
 # copy openal from build engine
-rsync -avP %{_libdir}/libopenal.so.1* %{buildroot}%{_datadir}/%{name}/lib/
+install -D %{_libdir}/libopenal.so.1* -t %{buildroot}%{_datadir}/%{name}/lib/
+install -m 655 -D base/gamecontrollerdb.txt -t %{buildroot}%{_datadir}/%{name}/
 # << install post
 
 # desktop-file-install --delete-original       \

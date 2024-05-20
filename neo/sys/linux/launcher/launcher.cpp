@@ -303,8 +303,8 @@ Launcher::Launcher(int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_DisplayMode dm;
     SDL_GetCurrentDisplayMode(0,&dm);
-    d_ptr->nativeWidth = dm.w < dm.h ? dm.w : dm.h;
-    d_ptr->nativeHeight = dm.w > dm.h ? dm.w : dm.h;
+    d_ptr->nativeWidth = dm.w; //dm.w < dm.h ? dm.w : dm.h;
+    d_ptr->nativeHeight = dm.h; //dm.w > dm.h ? dm.w : dm.h;
     fprintf(stderr, "Hello %i x %i\n", dm.w, dm.h);
     #ifndef SAILFISHOS
         d_ptr->nativeWidth = 1280;
@@ -403,13 +403,16 @@ int LauncherPrivate::render_tab0(bool &done)
     ImGuiIO& io = ImGui::GetIO();
     const SettingsValue *basePath = get_setting("fs_basepath");
 
-    ImVec2 logoSize = {ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x};
+    ImVec2 logoSize;
+    logoSize.x = logoSize.y = ImGui::GetContentRegionAvail().y - ImGui::GetTextLineHeight() - ImGui::GetStyle().ItemSpacing.y * 5 - button_height * 3;
+    if (logoSize.x > ImGui::GetContentRegionAvail().x) {
+        logoSize.x = logoSize.y = ImGui::GetContentRegionAvail().x;
+    }
+    float off = (ImGui::GetContentRegionAvail().x - logoSize.x) * 0.5;
+    if (off > 0.0f)
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 
-    // float off = (logoSize.x - size) * alignment;
-    // if (off > 0.0f)
-    //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-
-    ImGui::Image((void*)(intptr_t)logo512.texture, logoSize, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
+    ImGui::Image((void*)(intptr_t)logo512.texture, logoSize);//, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
 
     idStr message;
 
@@ -503,7 +506,7 @@ int LauncherPrivate::render_tab2_about(bool &done) {
     // float off = (logoSize.x - size) * alignment;
     // if (off > 0.0f)
     //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-    ImGui::Image((void*)(intptr_t)avatar.texture, logoSize, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
+    ImGui::Image((void*)(intptr_t)avatar.texture, logoSize);//, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
     ImGui::SameLine();
     ImGui::TextWrapped("This port based on dhewm3. Port made by sashikknox");
 
@@ -535,10 +538,7 @@ int LauncherPrivate::render_tabBar(bool &done)
     ImGui::SameLine();
     if (ImGui::Button("About"))
         tabIndex = 2;
-    
-    // if (tabIndex == 1) {
-        // ImGui::SetNextWindowPos(ImGui::GetFontSize());
-    // }
+        
     return Launcher::Status::Ok;
 }
 

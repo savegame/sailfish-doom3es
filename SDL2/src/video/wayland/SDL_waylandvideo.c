@@ -487,8 +487,17 @@ display_handle_geometry(void *data,
         driverdata->x = x;
         driverdata->y = y;
     }
-    driverdata->physical_width = physical_width;
-    driverdata->physical_height = physical_height;
+    // fix physical size, against native size
+    if (driverdata->native_width > driverdata->native_height) {
+        driverdata->physical_width = SDL_max(physical_width, physical_height);
+        driverdata->physical_height = SDL_min(physical_width, physical_height);
+    } else {
+        driverdata->physical_width = SDL_min(physical_width, physical_height);
+        driverdata->physical_height = SDL_max(physical_width, physical_height);
+    }
+    // driverdata->physical_width = physical_width;
+    // driverdata->physical_height = physical_height;
+    // printf("SDL2 Log: Physical size (native %i x %i): %i x %i\n", driverdata->native_width, driverdata->native_height, driverdata->physical_width, driverdata->physical_height);
 
     /* The output name is only set if xdg-output hasn't provided a description. */
     if (driverdata->index == -1 && driverdata->placeholder.name == NULL) {

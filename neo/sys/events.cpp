@@ -999,7 +999,14 @@ sysEvent_t Sys_GetEvent() {
 		case SDL_DISPLAYEVENT:
 			if (ev.display.event != SDL_DISPLAYEVENT_ORIENTATION)
 				continue;
-			common->Warning("SDL_DISPLAYEVENT_ORIENTATION: %i", ev.display.data1);
+			// common->Warning("SDL_DISPLAYEVENT_ORIENTATION: %i", ev.display.data1);
+			// switch(ev.display.data1) {
+			// 	case SDL_ORIENTATION_UNKNOWN: common->Warning("SDL_ORIENTATION_UNKNOWN"); break;
+			// 	case SDL_ORIENTATION_LANDSCAPE: common->Warning("SDL_ORIENTATION_LANDSCAPE"); break;
+			// 	case SDL_ORIENTATION_LANDSCAPE_FLIPPED: common->Warning("SDL_ORIENTATION_LANDSCAPE_FLIPPED"); break;
+			// 	case SDL_ORIENTATION_PORTRAIT: common->Warning("SDL_ORIENTATION_PORTRAIT"); break;
+			// 	case SDL_ORIENTATION_PORTRAIT_FLIPPED: common->Warning("SDL_ORIENTATION_PORTRAIT_FLIPPED"); break;
+			// }
 			if (ev.display.data1 == SDL_ORIENTATION_LANDSCAPE) {
 				finger_pos_current_handler = finger_pos_landscape_handler;
 				GLimp_SetWindowOrientation((SDL_DisplayOrientation)ev.display.data1);

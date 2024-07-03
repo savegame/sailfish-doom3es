@@ -83,6 +83,7 @@ public:
     SDL_GLContext gl_context = nullptr;
     bool no_basepath = true;
     bool settings_changed = false;
+    bool native_landscape = false;
     // imgui ui variables
     int button_height = 160;
     int tabIndex = 0;
@@ -91,6 +92,7 @@ public:
 
     LImage logo512;
     LImage avatar;
+    ImFont *fntPixy = nullptr;
 
     char *get_num(int num) {
         idStr *str = new idStr(num);
@@ -218,6 +220,25 @@ public:
         return result;
     }
 
+    ImFont* load_font(idStr filename) {
+        ImFont *result = nullptr;
+        idStr config_path;
+#ifdef SAILFISH_APPNAME
+        Sys_GetPath(PATH_BASE, config_path);
+#else
+        Sys_GetPath(PATH_CONFIG, config_path);
+#endif
+        if (filename.Find('/') != 0) 
+            config_path += "/";
+        config_path += filename;
+        result = ImGui::GetIO().Fonts->AddFontFromFileTTF(config_path.c_str(),
+        38, nullptr, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
+        if (!result)
+            printf("Font not found: %s\n", config_path.c_str());
+        return result;
+    }
+    
+
     bool CenterButton(const char* label, float alignment = 0.5f)
     {
         ImGuiStyle& style = ImGui::GetStyle();
@@ -295,7 +316,7 @@ Launcher::Launcher(int argc, char** argv)
 #ifdef SDL_HINT_IME_SHOW_UI
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
-    SDL_SetHint(SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "portrait");
+    SDL_SetHint(SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION, "primary");
 
     // Create window with graphics context
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -303,16 +324,16 @@ Launcher::Launcher(int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_DisplayMode dm;
     SDL_GetCurrentDisplayMode(0,&dm);
-    d_ptr->nativeWidth = dm.w; //dm.w < dm.h ? dm.w : dm.h;
-    d_ptr->nativeHeight = dm.h; //dm.w > dm.h ? dm.w : dm.h;
-    fprintf(stderr, "Hello %i x %i\n", dm.w, dm.h);
+    d_ptr->nativeWidth = dm.w;
+    d_ptr->nativeHeight = dm.h;
+    fprintf(stderr, "Native resolution is %i x %i\n", dm.w, dm.h);
     #ifndef SAILFISHOS
         d_ptr->nativeWidth = 1280;
         d_ptr->nativeHeight = 720;
     #endif
+    d_ptr->native_landscape = d_ptr->nativeWidth > d_ptr->nativeHeight;
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     d_ptr->window = SDL_CreateWindow("ru.sashikknox.doom3es", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, d_ptr->nativeWidth, d_ptr->nativeHeight, window_flags);
-
     d_ptr->gl_context = SDL_GL_CreateContext(d_ptr->window);
     SDL_GL_MakeCurrent(d_ptr->window, d_ptr->gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
@@ -334,12 +355,21 @@ Launcher::Launcher(int argc, char** argv)
 
     ImGuiStyle * style = &ImGui::GetStyle();
     #ifdef SAILFISHOS
-    float imgui_scale_factor = d_ptr->nativeWidth / 220.0f;
+    float imgui_scale_factor = d_ptr->nativeWidth / 640.0f;
     #else
-    float imgui_scale_factor = 640 / 320.0f;
+    float imgui_scale_factor = 1.0; //640 / 320.0f;
     #endif
     style->ScaleAllSizes(imgui_scale_factor);
     io.FontGlobalScale = imgui_scale_factor;
+    idStr resourcesPath;
+#ifdef SAILFISH_APPNAME
+    d_ptr->fntPixy = d_ptr->load_font("res/PIXY.ttf");
+#else
+    Sys_GetPath(PATH_CONFIG, resourcesPath);
+    resourcesPath = "/home/sashikknox/Projects/doom3es/res/PIXY.ttf";
+    d_ptr->fntPixy = io.Fonts->AddFontFromFileTTF(resourcesPath.c_str(),
+        38, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+#endif
 
     // Main loop
     // create a file browser instance
@@ -415,36 +445,39 @@ int LauncherPrivate::render_tab0(bool &done)
     ImGui::Image((void*)(intptr_t)logo512.texture, logoSize);//, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
 
     idStr message;
-
+    if (fntPixy)
+        ImGui::PushFont(fntPixy);
     if (!basePath || !basePath->str_value || basePath->str_value->IsEmpty()) {
-        message = "Choose directory with original Doom 3 files. You can buy it on Steam";
+        // message = "Choose directory with original Doom 3 files. You can buy it on Steam";
+        message = "Выбирите папку в которой расположена копия оригинальной игры Doom 3. Игру можно купить на Steam.";
         ImGui::TextWrapped(message.c_str());
-        if (CenterButton("Go to Steam")) {
+        if (CenterButton("Ссылка на Steam")) {
             SDL_OpenURL("https://store.steampowered.com/app/208200/DOOM_3/");
             SDL_SetClipboardText("https://store.steampowered.com/app/208200/DOOM_3/");
         }
     } else {
-        message = "Doom 3 path: ";
+        message = "Путо до игры Doom 3: ";
         message += *(basePath->str_value);
         ImGui::Text(message.c_str());
     }
 
 
-    if (ImGui::Button("Open path", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
+    if (ImGui::Button("Выбрать папку", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         fileDialog.Open();
     }
 
 
-    if (basePath && ImGui::Button("Continue to Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
+    if (basePath && ImGui::Button("Играть в Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         done = true;
         set_setting_string("fs_game", "");
     }
 
-    if (basePath && ImGui::Button("Continue to D3XP", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
+    if (basePath && ImGui::Button("Играть в D3XP", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         done = true;
         set_setting_string("fs_game", "d3xp");
     }
     
+    ImGui::PopFont();
     ImGui::End();
 
     fileDialog.SetWindowPos(0,0);
@@ -503,25 +536,27 @@ int LauncherPrivate::render_tab2_about(bool &done) {
 
     logoSize.x = logoSize.y = dpmm * 20.0; // 20 mm size
 
+    ImGui::PushFont(fntPixy);
     // float off = (logoSize.x - size) * alignment;
     // if (off > 0.0f)
     //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
     ImGui::Image((void*)(intptr_t)avatar.texture, logoSize);//, ImVec2(0.0, 1.0), ImVec2(1.0, 0.0), ImVec4(1.0, 1.0, 1.0, 1.0));
     ImGui::SameLine();
-    ImGui::TextWrapped("This port based on dhewm3. Port made by sashikknox");
-
-    CenterText("Source code:");
+    ImGui::TextWrapped("Порт игры базируется на проекте \"dhewm3\". Игра портирована разработчиком sashikknox");
+    ImGui::LabelText("","");
+    CenterText("Исходные коды:");
     if (CenterButton("GitHub.com")) {
         SDL_OpenURL("https://github.com/savegame/sailfish-doom3es");
         SDL_SetClipboardText("https://github.com/savegame/sailfish-doom3es");
     }
-
-    CenterText("Donate:");
+    ImGui::LabelText("","");
+    CenterText("Поддержать монетой:");
     if (CenterButton("Boosty.to/sashikknox")) {
         SDL_OpenURL("https://boosty.to/sashikknox");
         SDL_SetClipboardText("https://boosty.to/sashikknox");
     }
 
+    ImGui::PopFont();
     ImGui::End();
     return Launcher::Status::Ok;
 }
@@ -529,16 +564,16 @@ int LauncherPrivate::render_tab2_about(bool &done) {
 int LauncherPrivate::render_tabBar(bool &done) 
 {
     ImGui::LabelText("","");
-    
-    if (ImGui::Button("General"))
+    ImGui::PushFont(fntPixy);
+    if (ImGui::Button("Главная"))
         tabIndex = 0;
     ImGui::SameLine();
-    if (ImGui::Button("Graphics"))
+    if (ImGui::Button("Графика"))
         tabIndex = 1;
     ImGui::SameLine();
-    if (ImGui::Button("About"))
+    if (ImGui::Button("О программе"))
         tabIndex = 2;
-        
+    ImGui::PopFont();
     return Launcher::Status::Ok;
 }
 

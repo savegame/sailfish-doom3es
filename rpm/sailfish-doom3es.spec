@@ -35,6 +35,7 @@ Source0:    sailfish-doom3es-%{version}.tar.bz2
 BuildRequires: pkgconfig(openal)
 BuildRequires: pkgconfig(libcurl)
 BuildRequires: cmake
+BuildRequires: gcc
 BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(mce)
 BuildRequires: pkgconfig(wayland-egl)
@@ -43,9 +44,12 @@ BuildRequires: pkgconfig(wayland-cursor)
 BuildRequires: pkgconfig(wayland-protocols)
 BuildRequires: pkgconfig(wayland-scanner)
 BuildRequires: pkgconfig(egl)
+BuildRequires: pkgconfig(glesv1_cm)
 BuildRequires: pkgconfig(glesv2)
 BuildRequires: pkgconfig(xkbcommon)
 BuildRequires: pkgconfig(gbm)
+BuildRequires: pkgconfig(udev)
+BuildRequires: pkgconfig(libpulse)
 BuildRequires: rsync
 
 %description
@@ -63,17 +67,39 @@ sed -i "s/__FIREJAIL__/%{firejail_section}/g" %{name}.desktop
 sed -i "s/__X_AURORA_APP__/%{xauroraapp}/g" %{name}.desktop
 sed -i "s/#/\n/g" %{name}.desktop
 # << build pre
-mkdir -p %{build_dir}
-cd %{build_dir}
-cmake \
+
+%cmake \
+    -Bbuild_libsdl_%{_arch} \
+    -DSDL_PULSEAUDIO=OFF \
+    -DSDL_RPATH=OFF \
+    -DSDL_STATIC=ON \
+    -DSDL_SHARED=OFF \
+    -DSDL_WAYLAND=ON \
+    -DSDL_X11=OFF \
+    -DSDL_DBUS=ON \
+    -DSDL_WAYLAND_LIBDECOR=OFF \
+    libsdl
+
+pushd build_libsdl_%{_arch}
+%make_build -j`nproc`
+rsync -avP include-config-/SDL2/* include/SDL2/
+popd
+
+%cmake \
+    -B%{build_dir} \
     -DCMAKE_BUILD_TYPE=Release \
     -DSFOS_PACKAGE_NAME="%{name}" \
     -DSAILFISHOS=ON \
-    ../
+    -DSDL2_INCLUDE_DIR="`pwd`/build_libsdl_%{_arch}/include/SDL2" \
+    -DSDL2_LIBRARY="`pwd`/build_libsdl_%{_arch}/libSDL2.a" \
+    .
+
+pushd %{build_dir}
 %make_build 
 strip neo/base.so
 strip neo/d3xp.so
 strip neo/%{name}
+popd
 # >> build post
 # << build post
 

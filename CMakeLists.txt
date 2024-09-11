@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 if(SAILFISHOS)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 endif()
 
 project(sailfish-doom3es)
@@ -9,21 +9,6 @@ project(sailfish-doom3es)
 
 if(NOT SFOS_PACKAGE_NAME)
 set(SFOS_PACKAGE_NAME ${CMAKE_PROJECT_NAME})
-endif()
-
-if(SAILFISHOS OR STATIC_SDL2)
-    message("Configure SDL2:")
-    set(LIB_SUFFIX "")
-    set(PULSEAUDIO ON)
-    set(SDL_STATIC ON)
-    set(VIDEO_WAYLAND ON)
-    set(VIDEO_X11 OFF)
-    set(WAYLAND_LIBDECOR OFF)
-    set(SDL_OSS OFF)
-    set(STATIC_SDL2 ON)
-    add_subdirectory(${CMAKE_SOURCE_DIR}/SDL2)
-else()
-    message("Use dynamic linked SDL2")
 endif()
 
 message("Configure imgui:")

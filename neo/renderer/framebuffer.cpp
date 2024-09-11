@@ -339,16 +339,16 @@ void R_FrameBufferEnd()
 #ifdef USE_LIPSTICK_FBO
 	switch(GLimp_GetWindowOrientation()) {
 	case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
-		if(glConfig.vidWidthReal > glConfig.vidHeightReal)
+		if(glConfig.vidWidthReal > glConfig.vidHeightReal) // native_landscape
 			glUniform4f(m_coordMaxLoc, 0, 0, 1.0f, 1.0f);
-		else
+		else // native portrait
 			glUniform4f(m_coordMaxLoc, 0, smax, tmax / smax, - smax / tmax);
 		break;
 	case SDL_ORIENTATION_LANDSCAPE:
 	default:
-		if(glConfig.vidWidthReal > glConfig.vidHeightReal)
+		if(glConfig.vidWidthReal > glConfig.vidHeightReal) // native_landscape
 			glUniform4f(m_coordMaxLoc, smax, tmax, - smax / tmax, - tmax / smax);
-		else
+		else // native portrait
 			glUniform4f(m_coordMaxLoc, tmax, 0, - tmax / smax, smax / tmax);
 		break;
 	}

@@ -196,32 +196,18 @@ include_directories(${ZLIB_INCLUDE_DIRS})
 find_package(OpenAL REQUIRED)
 include_directories(${OPENAL_INCLUDE_DIR})
 
-if (SDL2)
+if (SDL2_INCLUDE_DIR)
 	# skip SDL2main
 	if(APPLE OR WIN32)
 		set(SDL2_BUILDING_LIBRARY TRUE)
 	endif()
 	
-	if(STATIC_SDL2)
-		if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-			set(SDL2_CONFIG_INCLUDE_SUFFIX "debug")
-			set(SDL2_LIB_SUFFIX "d")
-		else()
-			set(SDL2_CONFIG_INCLUDE_SUFFIX "release")
-			set(SDL2_LIB_SUFFIX "")
-		endif()
-		set(SDL2_INCLUDE_DIR 
-			${CMAKE_BINARY_DIR}/SDL2/include
-			${CMAKE_BINARY_DIR}/SDL2/include-config-${SDL2_CONFIG_INCLUDE_SUFFIX})
-		set(SDL2_LIBRARY 
-			${CMAKE_BINARY_DIR}/SDL2/libSDL2${SDL2_LIB_SUFFIX}.a
-			"EGL"
-			"pthread"
-			"wayland-client")
-	else()
-		find_package(SDL2 REQUIRED)
-	endif()
-	message("Include SDL2 " ${SDL2_INCLUDE_DIR})
+	set(SDL2_LIBRARY 
+		${SDL2_LIBRARY}
+		"EGL"
+		"pthread"
+		"wayland-client")
+	message("Include SDL2 " ${SDL2_LIBRARY})
 	include_directories(${SDL2_INCLUDE_DIR})
 	set(SDLx_LIBRARY ${SDL2_LIBRARY})
 else()
@@ -1133,6 +1119,15 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX neo FILES ${src_idlib})
 
 if(CORE)
 	if(IMGUI_TOUCHSCREEN)
+		pkg_search_module(DBUS dbus-1 dbus)
+		pkg_search_module(QTCORE Qt5Core)
+		pkg_search_module(QTDBUS Qt5DBus)
+		include_directories("${DBUS_INCLUDE_DIRS}")
+		include_directories("${QTCORE_INCLUDE_DIRS}")
+		include_directories("${QTDBUS_INCLUDE_DIRS}")
+
+		message("QT LIB" ${QTCORE_LIBRARIES} ${QTCORE_LIBRARIES})
+
 		set(src_launcher
 			sys/linux/launcher/launcher.cpp
 		)
@@ -1179,7 +1174,6 @@ if(CORE)
 		message("Define SAILFISHOS and APP_NAME")
 	endif()
 	set_target_properties(${DHEWM3BINARY} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/sys/osx/Info.plist)
-
 	target_link_libraries(${DHEWM3BINARY}
 		idlib
 		${OPENAL_LIBRARY}
@@ -1188,6 +1182,11 @@ if(CORE)
 		${SDLx_LIBRARY}
 		${IMGUI_LIBRARY}
 		${sys_libs}
+		${QTCORE_LIBRARIES} 
+		${QTDBUS_LIBRARIES}
+		"EGL"
+		"pthread"
+		"wayland-client"
 		"GLESv2"
 	)
 

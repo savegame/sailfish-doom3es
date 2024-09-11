@@ -1,0 +1,3 @@
+[submodule "libsdl"]
+	path = libsdl
+	url = git@github.com:savegame/SDL.git

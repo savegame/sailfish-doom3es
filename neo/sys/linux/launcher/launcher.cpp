@@ -7,10 +7,28 @@
 #include "framework/FileSystem.h"
 #include "imfilebrowser.h"
 #include "renderer/Image.h"
+// #include "../../../../SDL2/src/SDL_internal.h"
+#include <QCoreApplication>
+#include <QDBusContext>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <SDL.h>
 #include <vector>
 #include <list>
 #include <map>
+
+// #define HAVE_DBUS_DBUS_H
+// #define SDL_USE_LIBDBUS
+// #include "../../../../libsdl/src/core/linux/SDL_dbus.h"
+// #include "../../../../libsdl/src/core/linux/SDL_dbus.c"
+
+#define Intent_Service "ru.omp.RuntimeManager"
+#define Intent_Path "/ru/omp/RuntimeManager/Intents1"
+#define Intent_IFace "ru.omp.RuntimeManager.Intents1"
+#define Intent_Method "InvokeIntent"
+#define Intent_Hints ""
+#define Intent_IntentMethod "OpenURI"
 
 class idStr_ : public idStr {
 public:
@@ -81,6 +99,7 @@ public:
 
     SDL_Window *window = nullptr;
     SDL_GLContext gl_context = nullptr;
+    // SDL_DBusContext *dbus_context = nullptr;
     bool no_basepath = true;
     bool settings_changed = false;
     bool native_landscape = false;
@@ -93,6 +112,15 @@ public:
     LImage logo512;
     LImage avatar;
     ImFont *fntPixy = nullptr;
+
+    void openUrl(idStr url) {
+        auto request = QDBusMessage::createMethodCall(Intent_Service, Intent_Path, Intent_IFace, Intent_Method);
+        request << Intent_IntentMethod;
+        request << QVariantMap ();
+        request << QVariantMap { {QString("uri"),url.c_str()}} ;
+        auto async = QDBusConnection::sessionBus().asyncCall(request);
+        // TODO Fallback to SDL@ OpenURL
+    }
 
     char *get_num(int num) {
         idStr *str = new idStr(num);
@@ -243,7 +271,7 @@ public:
     {
         ImGuiStyle& style = ImGui::GetStyle();
 
-        float size = ImGui::CalcTextSize(label).x + style.FramePadding.x * 2.0f;
+        float size = ImGui::CalcTextSize(label).x + style.FramePadding.x * 4.0f;
         float avail = ImGui::GetContentRegionAvail().x;
 
         float off = (avail - size) * alignment;
@@ -452,8 +480,9 @@ int LauncherPrivate::render_tab0(bool &done)
         message = "Выбирите папку в которой расположена копия оригинальной игры Doom 3. Игру можно купить на Steam.";
         ImGui::TextWrapped(message.c_str());
         if (CenterButton("Ссылка на Steam")) {
-            SDL_OpenURL("https://store.steampowered.com/app/208200/DOOM_3/");
-            SDL_SetClipboardText("https://store.steampowered.com/app/208200/DOOM_3/");
+            // SDL_OpenURL("https://store.steampowered.com/app/208200/DOOM_3/");
+            // SDL_SetClipboardText("https://store.steampowered.com/app/208200/DOOM_3/");
+            openUrl("https://store.steampowered.com/app/208200/DOOM_3/");
         }
     } else {
         message = "Путо до игры Doom 3: ";
@@ -546,14 +575,12 @@ int LauncherPrivate::render_tab2_about(bool &done) {
     ImGui::LabelText("","");
     CenterText("Исходные коды:");
     if (CenterButton("GitHub.com")) {
-        SDL_OpenURL("https://github.com/savegame/sailfish-doom3es");
-        SDL_SetClipboardText("https://github.com/savegame/sailfish-doom3es");
+        openUrl("https://github.com/savegame/sailfish-doom3es");
     }
     ImGui::LabelText("","");
     CenterText("Поддержать монетой:");
     if (CenterButton("Boosty.to/sashikknox")) {
-        SDL_OpenURL("https://boosty.to/sashikknox");
-        SDL_SetClipboardText("https://boosty.to/sashikknox");
+        openUrl("https://boosty.to/sashikknox");
     }
 
     ImGui::PopFont();
@@ -632,10 +659,10 @@ int LauncherPrivate::render_resolutions()
             bool selected = current_item == i;
             if (ImGui::Selectable((*it).name.c_str(), selected)) {
                 current_item = i;
-                #ifdef SAILFISHOS // do not use framebuffer on desktop
+                #ifdef SAILFISHOS 
                 set_setting_int("r_framebufferWidth", (*it).w);
                 set_setting_int("r_framebufferHeight", (*it).h);
-                #else
+                #else // do not use framebuffer on desktop
                 set_setting_int("r_customWidth", (*it).w);
                 set_setting_int("r_customHeight", (*it).h);
                 #endif
@@ -655,11 +682,16 @@ void LauncherPrivate::default_settings()
     set_setting_string("fs_game", "");
     get_setting_edit("fs_game")->save = false;
     set_setting_int("r_mode", -1);
-    set_setting_int("r_customHeight", nativeHeight);
     set_setting_int("r_customWidth", nativeWidth);
+    set_setting_int("r_customHeight", nativeHeight);
     #ifdef SAILFISHOS // do not use framebuffer on desktop
-    set_setting_int("r_framebufferWidth", (const int)((float)nativeHeight * 0.5f));
-    set_setting_int("r_framebufferHeight", (const int)((float)nativeWidth * 0.5f));
+    if (native_landscape) {
+        set_setting_int("r_framebufferWidth", (const int)((float)nativeWidth * 0.5f));
+        set_setting_int("r_framebufferHeight", (const int)((float)nativeHeight * 0.5f));
+    } else {
+        set_setting_int("r_framebufferWidth", (const int)((float)nativeHeight * 0.5f));
+        set_setting_int("r_framebufferHeight", (const int)((float)nativeWidth * 0.5f));
+    }
     #endif
     set_setting_option("+disconnect", true, "skip video on game start");
     set_setting_int("r_multiSamples", 0);
@@ -783,6 +815,8 @@ int Launcher::render()
     int finger_id = -1; // use just first finger for ImGui events
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     ImGuiIO& io = ImGui::GetIO();
+    int argc = 0;
+    QCoreApplication app(argc, nullptr);
 
     #ifdef __EMSCRIPTEN__
     // For an Emscripten build we are disabling file-system access, so let's not attempt to do a fopen() of the imgui.ini file.
@@ -794,6 +828,7 @@ int Launcher::render()
     while (!done)
 #endif
     {
+        app.processEvents(QEventLoop::AllEvents, 1);
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.

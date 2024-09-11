@@ -126,20 +126,20 @@ static void createShaders (void)
 			";
 #ifdef USE_LIPSTICK_FBO
 	const GLchar *fragSource;
-	if(glConfig.vidWidthReal > glConfig.vidHeightReal) {
-		fragSource = \
-			"precision highp float;                                       \n \
-			varying vec2 v_texCoord;                                      \n \
-			uniform sampler2D s_texture;                                  \n \
-			uniform vec4 v_coordMax;                                      \n \
-			void main()                                                   \n \
-			{                                                             \n \
-				gl_FragColor = texture2D( s_texture, vec2(                \n \
-					v_coordMax[1] + v_texCoord.x * v_coordMax[3],         \n \
-					v_coordMax[0] + v_texCoord.y * v_coordMax[2]) );      \n \
-			}                                                             \n \
-			";
-	} else {
+	// if(glConfig.vidWidthReal > glConfig.vidHeightReal) {
+	// 	fragSource = \
+	// 		"precision highp float;                                       \n \
+	// 		varying vec2 v_texCoord;                                      \n \
+	// 		uniform sampler2D s_texture;                                  \n \
+	// 		uniform vec4 v_coordMax;                                      \n \
+	// 		void main()                                                   \n \
+	// 		{                                                             \n \
+	// 			gl_FragColor = texture2D( s_texture, vec2(                \n \
+	// 				v_coordMax[1] + v_texCoord.x * v_coordMax[3],         \n \
+	// 				v_coordMax[0] + v_texCoord.y * v_coordMax[2]) );      \n \
+	// 		}                                                             \n \
+	// 		";
+	// } else {
 		fragSource = \
 			"precision highp float;                                       \n \
 			varying vec2 v_texCoord;                                      \n \
@@ -149,10 +149,11 @@ static void createShaders (void)
 			{                                                             \n \
 				gl_FragColor = texture2D( s_texture, vec2(                \n \
 					v_coordMax[1] + v_texCoord.y * v_coordMax[3],         \n \
-					v_coordMax[0] + v_texCoord.x * v_coordMax[2]) );      \n \
+					v_coordMax[0] + v_texCoord.x * v_coordMax[2]) )       \n \
+					+ vec4(0.0, 0.0, 0.0, 1.0);                           \n \
 			}                                                             \n \
 			";
-	}
+	// }
 #else
 	const GLchar *fragSource = \
 			"precision mediump float;                                \n  \

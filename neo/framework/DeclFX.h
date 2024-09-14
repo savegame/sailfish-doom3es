@@ -96,6 +96,12 @@ typedef struct {
 	bool					trackOrigin;
 } idFXSingleAction;
 
+#ifdef _HUMANHEAD
+// HUMANHEAD nla
+enum fxAxis { AXIS_CURRENT, AXIS_NORMAL, AXIS_BOUNCE, AXIS_INCOMING, AXIS_CUSTOMLOCAL };
+// HUMANHEAD END
+#endif
+
 //
 // grouped fx structures
 //

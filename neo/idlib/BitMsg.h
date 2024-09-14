@@ -137,6 +137,18 @@ public:
 	static int		DirToBits( const idVec3 &dir, int numBits );
 	static idVec3	BitsToDir( int bits, int numBits );
 
+#ifdef HUMANHEAD
+	//HUMANHEAD: aob
+	void			WriteVec3( const idVec3& vector );
+	void			WriteMat3( const idMat3& axis );
+	void			WriteBool( bool boolean );
+
+	idVec3			ReadVec3() const;
+	idMat3			ReadMat3() const;
+	bool			ReadBool() const;
+	//HUMANHEAD END
+#endif
+
 private:
 	byte *			writeData;			// pointer to data for writing
 	const byte *	readData;			// pointer to data for reading

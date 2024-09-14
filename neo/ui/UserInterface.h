@@ -89,6 +89,29 @@ public:
 	virtual void				SetStateInt( const char *varName, const int value ) = 0;
 	virtual void				SetStateFloat( const char *varName, const float value ) = 0;
 
+#ifdef _RAVEN
+	virtual void				SetStateVec4( const char *varName, const idVec4& vector ) = 0;
+	virtual idVec4				GetLightColor(void) = 0;
+
+// RAVEN BEGIN
+// bdube: added
+								// Changes the interactive of the gui
+	virtual void				SetInteractive ( bool interactive ) = 0 ;
+
+// jscott: added
+	virtual class idWindow *	GetDesktop( void ) const = 0;
+// RAVEN END
+
+// RAVEN BEGIN
+// bdube: added way to clear state
+	virtual void				ClearState( void ) = 0;
+// rjohnson: added
+
+// RAVEN BEGIN
+// mekberg: Returns the index of the string where width in pixels <= specified val. Can return index of last whitespace.
+	virtual bool				GetMaxTextIndex( const char *windowName, const char *text, wrapInfo_t& wrapInfo ) const = 0;
+#endif
+
 								// Gets a gui state variable
 	virtual const char*			GetStateString( const char *varName, const char* defaultString = "" ) const = 0;
 	virtual bool				GetStateBool( const char *varName, const char* defaultString = "0" ) const  = 0;
@@ -114,6 +137,14 @@ public:
 	virtual void				SetCursor( float x, float y ) = 0;
 	virtual float				CursorX() = 0;
 	virtual float				CursorY() = 0;
+
+#ifdef _HUMANHEAD
+    // HUMANHEAD pdm: Translation effect
+    //virtual void				SetDemoGuiSource(const char *sourceName) = 0;
+    virtual void				Translate(const char *fontname) = 0;
+    virtual void				CallStartup() = 0;
+    // HUMANHEAD END
+#endif
 };
 
 

@@ -58,6 +58,7 @@ include(GNUInstallDirs OPTIONAL RESULT_VARIABLE GNUINSTALLDIRS)
 option(CORE			"Build the core" ON)
 option(BASE			"Build the base game code" ON)
 option(D3XP			"Build the d3xp game code" ON)
+option(PREY			"Build the Prey game code" ON)
 if(MSVC)
 	option(TOOLS		"Build the tools game code (Visual Studio+SDL2 only)" OFF)
 endif()
@@ -878,6 +879,253 @@ set(src_d3xp
 
 add_globbed_headers(src_d3xp "d3xp")
 
+set(src_prey
+	prey/Player.cpp
+	prey/PlayerIcon.cpp
+	prey/Entity.cpp
+	prey/AFEntity.cpp
+	prey/EntityAdditions.cpp
+	prey/Sound.cpp
+	prey/SmokeParticles.cpp
+	prey/Trigger.cpp
+	prey/AF.cpp
+	prey/Target.cpp
+	prey/anim/Anim_Import.cpp
+	prey/anim/Anim_Blend.cpp
+	prey/anim/Anim_Testmodel.cpp
+	prey/anim/Anim.cpp
+	prey/Mover.cpp
+	prey/gamesys/DebugGraph.cpp
+	prey/gamesys/Callbacks.cpp
+	prey/gamesys/Class.cpp
+	prey/gamesys/SysCmds.cpp
+	prey/gamesys/TypeInfo.cpp
+	prey/gamesys/SysCvar.cpp
+	prey/gamesys/Event.cpp
+	prey/gamesys/SaveGame.cpp
+	prey/Fx.cpp
+	prey/Projectile.cpp
+	prey/script/Script_Thread.cpp
+	prey/script/Script_Compiler.cpp
+	prey/script/Script_Interpreter.cpp
+	prey/script/Script_Program.cpp
+	prey/Moveable.cpp
+	prey/Weapon.cpp
+	prey/ai/AI.cpp
+	prey/ai/AI_pathing.cpp
+	prey/ai/AAS.cpp
+	prey/ai/AAS_pathing.cpp
+	prey/ai/AAS_debug.cpp
+	prey/ai/AAS_routing.cpp
+	prey/ai/AAS_NearPoint.cpp
+	prey/ai/AI_events.cpp
+	prey/GameEdit.cpp
+	prey/Camera.cpp
+	prey/SecurityCamera.cpp
+	prey/physics/Physics_Base.cpp
+	prey/physics/Force.cpp
+	prey/physics/Physics_Actor.cpp
+	prey/physics/Physics_Parametric.cpp
+	prey/physics/Force_Field.cpp
+	prey/physics/Physics_Player.cpp
+	prey/physics/Physics_PreyPlayer.cpp
+	prey/physics/Physics.cpp
+	prey/physics/Physics_RigidBody.cpp
+	prey/physics/Push.cpp
+	prey/physics/Physics_Monster.cpp
+	prey/physics/Physics_AF.cpp
+	prey/physics/Physics_StaticMulti.cpp
+	prey/physics/Force_Constant.cpp
+	prey/physics/Force_Spring.cpp
+	prey/physics/Physics_Static.cpp
+	prey/physics/Clip.cpp
+	prey/physics/Force_Drag.cpp
+	prey/Item.cpp
+	prey/Game_local.cpp
+	prey/PlayerView.cpp
+	prey/Actor.cpp
+	prey/IK.cpp
+	prey/Light.cpp
+	prey/Prey/prey_liquid.cpp
+	prey/Prey/prey_soundleadincontroller.cpp
+	prey/Prey/prey_projectilefreezer.cpp
+	prey/Prey/game_pod.cpp
+	prey/Prey/game_utils.cpp
+	prey/Prey/prey_weaponsoulstripper.cpp
+	prey/Prey/game_itemautomatic.cpp
+	prey/Prey/game_arcadegame.cpp
+	prey/Prey/game_inventory.cpp
+	prey/Prey/prey_projectilespiritarrow.cpp
+	prey/Prey/game_weaponHandState.cpp
+	prey/Prey/game_modeldoor.cpp
+	prey/Prey/game_mountedgun.cpp
+	prey/Prey/prey_weaponspiritbow.cpp
+	prey/Prey/sys_preycmds.cpp
+	prey/Prey/game_events.cpp
+	prey/Prey/ai_harvester_simple.cpp
+	prey/Prey/game_guihand.cpp
+	prey/Prey/physics_delta.cpp
+	prey/Prey/prey_game.cpp
+	prey/Prey/sys_debugger.cpp
+	prey/Prey/prey_weaponfirecontroller.cpp
+	prey/Prey/game_jumpzone.cpp
+	prey/Prey/game_bindController.cpp
+	prey/Prey/prey_projectilerifle.cpp
+	prey/Prey/game_fxinfo.cpp
+	prey/Prey/ai_speech.cpp
+	prey/Prey/game_entityspawner.cpp
+	prey/Prey/game_wraith.cpp
+	prey/Prey/prey_projectileautocannon.cpp
+	prey/Prey/prey_weaponrifle.cpp
+	prey/Prey/prey_camerainterpolator.cpp
+	prey/Prey/game_talon.cpp
+	prey/Prey/game_moveable.cpp
+	prey/Prey/ai_mutilatedhuman.cpp
+	prey/Prey/game_animatedentity.cpp
+	prey/Prey/game_portal.cpp
+	prey/Prey/game_gibbable.cpp
+	prey/Prey/game_console.cpp
+	prey/Prey/game_entityfx.cpp
+	prey/Prey/game_player.cpp
+	prey/Prey/game_animator.cpp
+	prey/Prey/ai_Navigator.cpp
+	prey/Prey/game_animDriven.cpp
+	prey/Prey/game_deathwraith.cpp
+	prey/Prey/game_modeltoggle.cpp
+	prey/Prey/game_damagetester.cpp
+	prey/Prey/game_trackmover.cpp
+	prey/Prey/game_note.cpp
+	prey/Prey/prey_projectilewrench.cpp
+	prey/Prey/game_spring.cpp
+	prey/Prey/game_afs.cpp
+	prey/Prey/game_barrel.cpp
+	prey/Prey/particles_particles.cpp
+	prey/Prey/game_dda.cpp
+	prey/Prey/game_gun.cpp
+	prey/Prey/game_poker.cpp
+	prey/Prey/game_targetproxy.cpp
+	prey/Prey/game_debrisspawner.cpp
+	prey/Prey/game_monster_ai.cpp
+	prey/Prey/game_podspawner.cpp
+	prey/Prey/game_railshuttle.cpp
+	prey/Prey/game_misc.cpp
+	prey/Prey/game_healthbasin.cpp
+	prey/Prey/game_vomiter.cpp
+	prey/Prey/ai_inspector.cpp
+	prey/Prey/game_zone.cpp
+	prey/Prey/prey_projectilebug.cpp
+	prey/Prey/ai_centurion.cpp
+	prey/Prey/game_mover.cpp
+	prey/Prey/game_anim.cpp
+	prey/Prey/game_targets.cpp
+	prey/Prey/game_energynode.cpp
+	prey/Prey/game_proxdoor.cpp
+	prey/Prey/game_vehicle.cpp
+	prey/Prey/prey_baseweapons.cpp
+	prey/Prey/game_door.cpp
+	prey/Prey/game_healthspore.cpp
+	prey/Prey/game_tripwire.cpp
+	prey/Prey/game_lightfixture.cpp
+	prey/Prey/game_handcontrol.cpp
+	prey/Prey/ai_gasbag_simple.cpp
+	prey/Prey/game_skybox.cpp
+	prey/Prey/game_gravityswitch.cpp
+	prey/Prey/game_portalframe.cpp
+	prey/Prey/prey_weaponcrawlergrenade.cpp
+	prey/Prey/prey_animator.cpp
+	prey/Prey/prey_items.cpp
+	prey/Prey/force_converge.cpp
+	prey/Prey/game_organtrigger.cpp
+	prey/Prey/prey_weaponrocketlauncher.cpp
+	prey/Prey/ai_crawler.cpp
+	prey/Prey/game_dock.cpp
+	prey/Prey/prey_bonecontroller.cpp
+	prey/Prey/prey_beam.cpp
+	prey/Prey/game_shuttletransport.cpp
+	prey/Prey/prey_projectile.cpp
+	prey/Prey/game_jukebox.cpp
+	prey/Prey/game_forcefield.cpp
+	prey/Prey/prey_script_thread.cpp
+	prey/Prey/game_sphere.cpp
+	prey/Prey/prey_spiritsecret.cpp
+	prey/Prey/game_animBlend.cpp
+	prey/Prey/anim_baseanim.cpp
+	prey/Prey/prey_spiritbridge.cpp
+	prey/Prey/ai_passageway.cpp
+	prey/Prey/prey_projectilecocoon.cpp
+	prey/Prey/prey_weaponautocannon.cpp
+	prey/Prey/game_eggspawner.cpp
+	prey/Prey/ai_possessedTommy.cpp
+	prey/Prey/prey_projectilebounce.cpp
+	prey/Prey/game_itemcabinet.cpp
+	prey/Prey/game_playerview.cpp
+	prey/Prey/prey_projectilegasbagpod.cpp
+	prey/Prey/game_hand.cpp
+	prey/Prey/prey_projectileshuttle.cpp
+	prey/Prey/prey_vehiclefirecontroller.cpp
+	prey/Prey/ai_droid.cpp
+	prey/Prey/game_cards.cpp
+	prey/Prey/game_woundmanager.cpp
+	prey/Prey/prey_projectilerocketlauncher.cpp
+	prey/Prey/ai_creaturex.cpp
+	prey/Prey/prey_spiritproxy.cpp
+	prey/Prey/ai_jetpack_harvester_simple.cpp
+	prey/Prey/prey_projectilecrawlergrenade.cpp
+	prey/Prey/game_shuttle.cpp
+	prey/Prey/game_safeDeathVolume.cpp
+	prey/Prey/prey_firecontroller.cpp
+	prey/Prey/game_slots.cpp
+	prey/Prey/ai_hunter_simple.cpp
+	prey/Prey/ai_mutate.cpp
+	prey/Prey/game_cilia.cpp
+	prey/Prey/game_blackjack.cpp
+	prey/Prey/game_spherepart.cpp
+	prey/Prey/prey_weapon.cpp
+	prey/Prey/game_renderentity.cpp
+	prey/Prey/game_light.cpp
+	prey/Prey/game_trigger.cpp
+	prey/Prey/game_dockedgun.cpp
+	prey/Prey/game_fixedpod.cpp
+	prey/Prey/physics_preyai.cpp
+	prey/Prey/game_mine.cpp
+	prey/Prey/game_securityeye.cpp
+	prey/Prey/prey_projectilesoulcannon.cpp
+	prey/Prey/game_shuttledock.cpp
+	prey/Prey/ai_sphereboss.cpp
+	prey/Prey/prey_weaponhider.cpp
+	prey/Prey/prey_projectilehiderweapon.cpp
+	prey/Prey/physics_vehicle.cpp
+	prey/Prey/game_rail.cpp
+	prey/Prey/ai_reaction.cpp
+	prey/Prey/prey_local.cpp
+	prey/Prey/game_alarm.cpp
+	prey/Prey/prey_projectiletrigger.cpp
+	prey/Prey/ai_spawncase.cpp
+	prey/Prey/game_sunCorona.cpp
+	prey/Prey/prey_projectilebugtrigger.cpp
+	prey/Prey/game_monster_ai_events.cpp
+	prey/Prey/prey_sound.cpp
+	prey/Prey/game_animatedgui.cpp
+	prey/Prey/physics_preyparametric.cpp
+	prey/Prey/prey_projectiletracking.cpp
+	prey/Prey/ai_keeper_simple.cpp
+	prey/Prey/physics_simple.cpp
+	prey/Prey/prey_projectilemine.cpp
+	prey/MultiplayerGame.cpp
+	prey/WorldSpawn.cpp
+	prey/BrittleFracture.cpp
+	prey/Game_network.cpp
+	prey/Pvs.cpp
+	prey/Misc.cpp
+	humanhead/idlib/math/prey_math.cpp
+	humanhead/ui/TabWindow.cpp
+	humanhead/ui/TabContainerWindow.cpp
+	humanhead/renderer/Model_hhBeam.cpp
+	humanhead/framework/declPreyBeam.cpp
+)
+
+add_globbed_headers(src_prey "prey")
+
 set(src_debuggerServer
 	tools/debugger/DebuggerBreakpoint.h
 	tools/debugger/DebuggerBreakpoint.cpp
@@ -1280,6 +1528,34 @@ if(D3XP)
 
 	if(NOT APPLE AND NOT WIN32)
 		install(TARGETS d3xp
+				RUNTIME DESTINATION "${bindir}"
+				LIBRARY DESTINATION "${libdir}"
+				ARCHIVE DESTINATION "${libdir}"
+		)
+	endif()
+endif()
+
+if(PREY)
+	# if (AROS)
+		# add_executable(prey sys/aros/dll/dllglue.c ${src_prey})
+		# set_target_properties(prey PROPERTIES OUTPUT_NAME "prey.aros-${AROS_ARCH}")
+	# else()
+		add_library(prey SHARED ${src_prey})
+	# endif()
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX neo FILES ${src_prey})
+	set_target_properties(prey PROPERTIES PREFIX "")
+	set_target_properties(prey PROPERTIES COMPILE_DEFINITIONS "GAME_DLL;HUMANHEAD;_HUMANHEAD")
+	target_include_directories(prey PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/prey")
+	set_target_properties(prey PROPERTIES LINK_FLAGS "${ldflags}")
+	set_target_properties(prey PROPERTIES INSTALL_NAME_DIR "@executable_path")
+	if (AROS)
+		target_link_libraries(prey idlib dll)
+	else()
+		target_link_libraries(prey idlib)
+	endif()
+
+	if(NOT APPLE AND NOT WIN32)
+		install(TARGETS prey
 				RUNTIME DESTINATION "${bindir}"
 				LIBRARY DESTINATION "${libdir}"
 				ARCHIVE DESTINATION "${libdir}"

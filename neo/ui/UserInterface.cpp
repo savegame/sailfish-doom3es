@@ -698,3 +698,38 @@ void idUserInterfaceLocal::SetCursor( float x, float y ) {
 	cursorX = x;
 	cursorY = y;
 }
+
+#ifdef _RAVEN
+void idUserInterfaceLocal::SetInteractive(bool interactive) {
+	SetStateBool("noninteractive", !interactive); //k: maybe not need
+	this->interactive = interactive;
+}
+
+bool idUserInterfaceLocal::IsDesktopInteractive() const
+{
+	return interactive || (desktop && desktop->Interactive());
+}
+
+void idUserInterfaceLocal::SetStateVec4( const char *varName, const idVec4& vector )
+{
+	state.SetVec4(varName, vector);
+}
+#endif
+
+#ifdef _HUMANHEAD
+void idUserInterfaceLocal::CallStartup(void)
+{
+	if(desktop)
+		desktop->RunScript(idWindow::ON_STARTUP);
+}
+
+void idUserInterfaceLocal::Translate(const char *fontname)
+{
+	if(!desktop)
+		return;
+	translateFont = -1;
+	if(!fontname || !fontname[0])
+		return;
+	translateFont = uiManagerLocal.dc.FindFont(fontname);
+}
+#endif

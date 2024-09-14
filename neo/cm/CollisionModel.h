@@ -64,6 +64,15 @@ typedef enum {
 	CONTACT_TRMVERTEX						// trace model vertex hits model polygon
 } contactType_t;
 
+#ifdef _RAVEN // quake4 cm file
+#define WORLD_MODEL_NAME	"worldMap"		// name of world model
+
+#define PROC_CLIPMODEL_INDEX_START		1
+#define PROC_CLIPMODEL_STRING_PRFX		"inlined_proc_clip_"
+											//
+#include "../raven/framework/declMatType.h"
+#endif
+
 // contact info
 typedef struct {
 	contactType_t			type;			// contact type
@@ -76,6 +85,13 @@ typedef struct {
 	int						trmFeature;		// contact feature on trace model
 	int						entityNum;		// entity the contact surface is a part of
 	int						id;				// id of clip model the contact surface is part of
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jscott: for material type code
+// jmarshall: this really needs to be implemented!
+	const rvDeclMatType* materialType;	// material type of texture (possibly indirected though a hit map)
+// RAVEN END
+#endif
 } contactInfo_t;
 
 // trace result
@@ -86,11 +102,42 @@ typedef struct trace_s {
 	contactInfo_t			c;				// contact information, only valid if fraction < 1.0
 } trace_t;
 
+#ifdef _RAVEN
+// collision model
+class idCollisionModel {
+public:
+	virtual						~idCollisionModel() { }
+								// Returns the name of the model.
+	virtual const char *		GetName( void ) const = 0;
+								// Gets the bounds of the model.
+	virtual bool				GetBounds( idBounds &bounds ) const = 0;
+								// Gets all contents flags of brushes and polygons of the model ored together.
+	virtual bool				GetContents( int &contents ) const = 0;
+								// Gets a vertex of the model.
+	virtual bool				GetVertex( int vertexNum, idVec3 &vertex ) const = 0;
+								// Gets an edge of the model.
+	virtual bool				GetEdge( int edgeNum, idVec3 &start, idVec3 &end ) const = 0;
+								// Gets a polygon of the model.
+	virtual bool				GetPolygon( int polygonNum, idFixedWinding &winding ) const = 0;
+};
+
+typedef idCollisionModel* cmHandle_t;
+#else
 typedef int cmHandle_t;
+#endif
 
 #define CM_CLIP_EPSILON		0.25f			// always stay this distance away from any model
 #define CM_BOX_EPSILON		1.0f			// should always be larger than clip epsilon
 #define CM_MAX_TRACE_DIST	4096.0f			// maximum distance a trace model may be traced, point traces are unlimited
+
+#ifdef _HUMANHEAD
+//HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+#define PROC_CLIPMODEL_INDEX_START		1
+#define PROC_CLIPMODEL_STRING_PRFX		"inlined_proc_clip_"
+#endif
+//HUMANHEAD END
+#endif
 
 class idCollisionModelManager {
 public:

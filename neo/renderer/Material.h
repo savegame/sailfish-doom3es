@@ -295,6 +295,44 @@ typedef enum {
 	CONTENTS_AREAPORTAL			= BIT(20),	// portal separating renderer areas
 	CONTENTS_NOCSG				= BIT(21),	// don't cut this brush with CSG operations in the editor
 
+#ifdef _RAVEN
+// RAVEN BEGIN
+// bdube: new clip that blocks monster visibility
+	CONTENTS_SIGHTCLIP			= BIT(16),	// used for blocking sight for actors and cameras
+	CONTENTS_LARGESHOTCLIP		= BIT(17),	// used to block large shots (fence that allows bullets through but not rockets for example)
+// cdr: AASTactical
+	CONTENTS_NOTACTICALFEATURES	= BIT(18),	// don't place tactical features here
+	CONTENTS_VEHICLECLIP		= BIT(19),	// solid to vehicles
+
+	CONTENTS_FLYCLIP			= BIT(22),	// solid to vehicles
+
+// mekberg: added
+	CONTENTS_ITEMCLIP			= BIT(23),	// so items can collide
+	CONTENTS_PROJECTILECLIP		= BIT(24),  // unlike contents_projectile, projectiles only NOT hitscans
+// RAVEN END
+/* // jmarshall23's botAI, not q4 sdk
+	CONTENTS_FOG				= BIT(25),
+	CONTENTS_LAVA				= BIT(26),
+	CONTENTS_SLIME				= BIT(27),*/
+#endif
+
+#ifdef _HUMANHEAD
+	// HUMANHEAD CJR: Content flags.  Note that for simplicity of merging, id's areaportal and nocsg flags were left as is
+	CONTENTS_FORCEFIELD = BIT(16),	// forcefield matter, only passable in spirit mode
+	CONTENTS_SPIRITBRIDGE = BIT(17),	// cjr - Collidable only by spiritwalking players
+	// END HUMANHEAD
+
+	// HUMANHEAD CJR: Content flags.  Note that for simplicity of merging, id's areaportal and nocsg flags were left as is
+	CONTENTS_BLOCK_RADIUSDAMAGE = BIT(18/*20*/),	// aob - used by objects like forcefields and chaff
+	CONTENTS_SHOOTABLE = BIT(19/*21*/),	// pdm - bullets collide with but not player or monsters
+	CONTENTS_DEATHVOLUME = BIT(22),	// AOB: used by death zones so the player can do a simple contents check
+	CONTENTS_VEHICLECLIP		= BIT(23),	// PDM: used to clip off vehicle movement
+	CONTENTS_OWNER_TO_OWNER		= BIT(24),	// bjk: used to disable owner to owner rejection for collision
+	CONTENTS_GAME_PORTAL		= BIT(25),  // cjr: used for clipping against game portals (glow portals, etc)
+	CONTENTS_SHOOTABLEBYARROW	= BIT(26),	// pdm: solid to spirit arrows specifically as opposed to other projectiles
+	CONTENTS_HUNTERCLIP			= BIT(27),	// pdm: solid to hunters, but not hunters in vehicles
+#endif
+
 	CONTENTS_REMOVE_UTIL		= ~(CONTENTS_AREAPORTAL|CONTENTS_NOCSG)
 } contentsFlags_t;
 
@@ -311,6 +349,16 @@ typedef enum {
 	SURFTYPE_CARDBOARD,
 	SURFTYPE_LIQUID,
 	SURFTYPE_GLASS,
+#ifdef _HUMANHEAD
+	SURFTYPE_TILE,
+	SURFTYPE_WALLWALK,
+	SURFTYPE_ALTMETAL,
+	SURFTYPE_FORCEFIELD,
+	SURFTYPE_PIPE,
+	SURFTYPE_SPIRIT,
+	SURFTYPE_CHAFF,
+	NUM_SURFACE_TYPES
+#else
 	SURFTYPE_PLASTIC,
 	SURFTYPE_RICOCHET,
 	SURFTYPE_10,
@@ -319,6 +367,7 @@ typedef enum {
 	SURFTYPE_13,
 	SURFTYPE_14,
 	SURFTYPE_15
+#endif
 } surfTypes_t;
 
 // surface flags

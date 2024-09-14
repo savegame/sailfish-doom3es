@@ -629,6 +629,45 @@ idVec3 idBitMsg::BitsToDir( int bits, int numBits ) {
 	return dir;
 }
 
+#ifdef HUMANHEAD
+void idBitMsg::WriteVec3( const idVec3& vector ) 
+{
+	idVec3 v = vector;
+	LittleRevBytes( &v, sizeof(float), sizeof(v)/sizeof(float) );
+	return WriteData( &v, sizeof( v ) );
+}
+void idBitMsg::WriteMat3( const idMat3& axis ) 
+{
+	idMat3 v = axis;
+	LittleRevBytes(&v, sizeof(float), sizeof(v)/sizeof(float) );
+	return WriteData( &v, sizeof( v ) );
+}
+void idBitMsg::WriteBool( bool value ) 
+{
+	unsigned char c = value;
+	return WriteData(&c, sizeof(c));
+}
+idVec3 idBitMsg::ReadVec3() const 
+{
+	idVec3 result;
+	ReadData( &result, sizeof( result ) );
+	LittleRevBytes( &result, sizeof(float), sizeof(result)/sizeof(float) );
+	return result;
+}
+idMat3 idBitMsg::ReadMat3() const 
+{
+	idMat3 mat;
+	ReadData( &mat, sizeof( mat ) );
+	LittleRevBytes( &mat, sizeof(float), sizeof(mat)/sizeof(float) );
+	return mat;
+}
+bool idBitMsg::ReadBool() const 
+{
+	unsigned char c;
+	ReadData(&c, sizeof(c));
+	return c;
+}
+#endif
 
 /*
 ==============================================================================

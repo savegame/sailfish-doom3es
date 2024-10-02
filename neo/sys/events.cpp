@@ -64,8 +64,8 @@ If you have questions concerning this license or the applicable additional terms
 #ifdef IMGUI_TOUCHSCREEN
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_opengl3.h"
 #include "framework/Session_local.h"
 #include <functional>
 #endif
@@ -1533,7 +1533,11 @@ static void handleMouseGrab() {
 
 		if ( menuActive ) {
 			showCursor = false;
+#if 1 //k
+			relativeMouse = !console->Active();
+#else
 			relativeMouse = false;
+#endif
 			grabMouse = false; // TODO: or still grab to window? (maybe only if in exclusive fullscreen mode?)
 		} else if ( console->Active() ) {
 			showCursor = true;

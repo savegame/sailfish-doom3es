@@ -5,7 +5,8 @@
 #pragma hdrstop
 
 #include "Game_local.h"
-
+#include "../idlib/geometry/JointTransform.h"
+#include "../humanhead/idlib/math/prey_math.h"
 
 /*
 ===============================================================================

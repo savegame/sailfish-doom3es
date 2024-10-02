@@ -242,6 +242,10 @@ public:
 	idInteraction *			lastInteraction;
 
 	struct doublePortal_s *	foggedPortals;
+#ifdef _SHADOW_MAPPING
+	float			baseLightProject[16];		// global xyz1 to projected light strq
+    float			inverseBaseLightProject[16];// transforms the zero-to-one cube to exactly cover the light in world space
+#endif
 };
 
 
@@ -343,6 +347,17 @@ typedef struct viewLight_s {
 	const struct drawSurf_s	*localShadows;				// don't shadow local Surfaces
 	const struct drawSurf_s	*globalInteractions;		// get shadows from everything
 	const struct drawSurf_s	*translucentInteractions;	// get shadows from everything
+
+#ifdef _SHADOW_MAPPING
+    bool					pointLight;					// otherwise a projection light (should probably invert the sense of this, because points are way more common)
+    bool					parallel;					// lightCenter gives the direction to the light at infinity
+    idVec3					lightCenter;				// offset the lighting direction for shading and
+    int						shadowLOD;					// level of detail for shadowmap selection
+    float			baseLightProject[16];			// global xyz1 to projected light strq
+	float			inverseBaseLightProject[16];// transforms the zero-to-one cube to exactly cover the light in world space
+    idVec3					lightRadius;		// xyz radius for point lights
+	const struct drawSurf_s	*perforatedShadows;	//karin: perforated surface for shadow mapping
+#endif
 } viewLight_t;
 
 
@@ -370,6 +385,9 @@ typedef struct viewEntity_s {
 
 	float				modelMatrix[16];		// local coords to global coords
 	float				modelViewMatrix[16];	// local coords to eye coords
+#ifdef _SHADOW_MAPPING
+	float mvp[16];
+#endif
 } viewEntity_t;
 
 
@@ -649,6 +667,10 @@ typedef struct {
 	glstate_t			glState;
 
 	int					c_copyFrameBuffer;
+#ifdef _SHADOW_MAPPING
+    float		shadowV[6][16];				// shadow depth view matrix
+    float		shadowP[6][16];				// shadow depth projection matrix
+#endif
 } backEndState_t;
 
 
@@ -709,6 +731,40 @@ public:
 	virtual void			CaptureRenderToFile( const char *fileName, bool fixAlpha );
 	virtual void			UnCrop();
 	virtual bool			UploadImage( const char *imageName, const byte *data, int width, int height );
+#ifdef _HUMANHEAD
+    virtual void			SetEntireSceneMaterial(idMaterial* material) { (void)material; }; // HUMANHEAD CJR
+    virtual bool			IsScopeView() {
+        return scopeView;
+    };// HUMANHEAD CJR
+    virtual void			SetScopeView(bool view) {
+		scopeView = view; 
+	} // HUMANHEAD CJR
+    virtual bool			IsShuttleView() {
+        return shuttleView;
+    };// HUMANHEAD CJR
+    virtual void			SetShuttleView(bool view) {
+		shuttleView = view;
+	}
+    virtual bool			SupportsFragmentPrograms(void) {
+        return false;
+    };// HUMANHEAD CJR
+    virtual int				VideoCardNumber(void) {
+        return 0;
+    }
+#if _HH_RENDERDEMO_HACKS //HUMANHEAD rww
+	virtual void			LogViewRender(const struct renderView_s *view) { (void)view; }
+#endif //HUMANHEAD END
+
+	bool scopeView;
+	bool shuttleView;
+	int lastRenderSkybox;
+	ID_INLINE bool SkyboxRenderedInFrame() const {
+		return frameCount == lastRenderSkybox;
+	}
+	ID_INLINE void RenderSkyboxInFrame() {
+		lastRenderSkybox = frameCount;
+	}
+#endif
 
 public:
 	// internal functions
@@ -718,7 +774,19 @@ public:
 	void					Clear( void );
 	void					SetBackEndRenderer();			// sets tr.backEndRenderer based on cvars
 	void					RenderViewToViewport( const renderView_t *renderView, idScreenRect *viewport );
-
+#ifdef _RAVEN
+#ifndef _CONSOLE
+	virtual void			TrackTextureUsage( TextureTrackCommand command, int frametime = 0, const char *name=NULL ) { (void)command; (void)frametime; (void)name; }
+#endif
+// RAVEN END
+	virtual void			SetSpecialEffect( ESpecialEffectType Which, bool Enabled ) { (void)Which; (void)Enabled; }
+	virtual void			SetSpecialEffectParm( ESpecialEffectType Which, int Parm, float Value ) { (void)Which; (void)Parm; (void)Value; }
+	virtual void			ShutdownSpecialEffects( void ) { }
+		virtual void			DrawStretchCopy( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material ) {
+			DrawStretchPic(x, y, w, h, s1, t1, s2, t2, material);
+		}
+	virtual void			DebugGraph( float cur, float min, float max, const idVec4 &color ) { (void)cur, (void)min; (void)max; (void)color; }
+#endif
 	xthreadInfo				renderThread = {0};
 
 	bool					multithreadActive = false;
@@ -989,6 +1057,10 @@ extern idCVar r_noLight;				// no lighting
 extern idCVar r_useETC1;				// ETC1 compression
 extern idCVar r_useETC1Cache;			// use ETC1 cache
 extern idCVar r_maxFps;
+
+#ifdef _RAVEN
+extern idCVar r_skipSky;
+#endif
 /*
 ====================================================================
 
@@ -1013,6 +1085,10 @@ const int GLS_SRCBLEND_DST_ALPHA				= 0x00000007;
 const int GLS_SRCBLEND_ONE_MINUS_DST_ALPHA		= 0x00000008;
 const int GLS_SRCBLEND_ALPHA_SATURATE			= 0x00000009;
 const int GLS_SRCBLEND_BITS						= 0x0000000f;
+
+#ifdef _RAVEN //k: quake4 blend
+const int GLS_SRCBLEND_SRC_COLOR				= 0x00000002;
+#endif
 
 const int GLS_DSTBLEND_ZERO						= 0x0;
 const int GLS_DSTBLEND_ONE						= 0x00000020;
@@ -1199,6 +1275,10 @@ void R_ModulateLights_f( const idCmdArgs &args );
 
 void R_SetLightProject( idPlane lightProject[4], const idVec3 origin, const idVec3 targetPoint,
 	   const idVec3 rightVector, const idVec3 upVector, const idVec3 start, const idVec3 stop );
+
+#ifdef _RAVEN // particle
+void R_AddEffectSurfaces(void);
+#endif
 
 void R_AddLightSurfaces( void );
 void R_AddModelSurfaces( void );
@@ -1553,5 +1633,11 @@ idScreenRect R_CalcIntersectionScissor( const idRenderLightLocal * lightDef,
 										const viewDef_t * viewDef );
 
 //=============================================
+
+#ifdef _RAVEN //k: macros for renderEffect_s::suppressSurfaceMask
+#define SUPPRESS_SURFACE_MASK(x) (1 << (x))
+#define SUPPRESS_SURFACE_MASK_CHECK(t, x) ((t) & SUPPRESS_SURFACE_MASK(x))
+#include "../raven/renderer/NewShaderStage.h"
+#endif
 
 #endif /* !__TR_LOCAL_H__ */

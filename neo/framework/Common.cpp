@@ -42,6 +42,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "framework/Game.h"
 #include "framework/KeyInput.h"
 #include "framework/EventLoop.h"
+#include "framework/Licensee.h"
 #include "renderer/Image.h"
 #include "renderer/Model.h"
 #include "renderer/ModelManager.h"
@@ -54,6 +55,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "GameCallbacks_local.h"
 #include "Session_local.h" // DG: For FT_IsDemo/isDemo() hack
+
 
 #define	MAX_PRINT_MSG_SIZE	4096
 #define MAX_WARNING_LIST	256
@@ -72,7 +74,7 @@ typedef enum {
 #endif
 
 struct version_s {
-			version_s( void ) { sprintf( string, "%s.%d%s %s-%s %s %s", ENGINE_VERSION, BUILD_NUMBER, BUILD_DEBUG, BUILD_OS, BUILD_CPU, ID__DATE__, ID__TIME__ ); }
+	version_s( void ) { sprintf( string, "%s.%d%s %s-%s %s %s", ENGINE_VERSION, BUILD_NUMBER, BUILD_DEBUG, BUILD_OS, BUILD_CPU, ID__DATE__, ID__TIME__ ); }
 	char	string[256];
 } version;
 
@@ -235,7 +237,28 @@ private:
 #ifdef ID_WRITE_VERSION
 	idCompressor *				config_compressor;
 #endif
+#ifdef _RAVEN
+		virtual const char* GetLocalizedString(const char* key, int langIndex) { return GetLanguageDict()->GetString(key); }
+		virtual const char* GetLocalizedString(const char* key) { return GetLanguageDict()->GetString(key); }
+		virtual int GetUserCmdMSec(void) { return 16; } 
+		virtual int GetUserCmdHz(void) { return 60; }
 
+	virtual void				ModViewThink ( void ) { }
+	virtual void				RunAlwaysThinkGUIs ( int time ) { (void)time; }
+	virtual void				DebuggerCheckBreakpoint ( idInterpreter* interpreter, idProgram* program, int instructionPointer ) { (void)interpreter; (void)program; (void)instructionPointer; }
+	virtual bool				DoingDeclValidation( void ) { return false; }
+	virtual void				LoadToolsDLL( void ) { }
+	virtual int					GetRModeForMachineSpec( int machineSpec ) const { (void)machineSpec; return 0; };
+	virtual void				SetDesiredMachineSpec( int machineSpec ) { (void)machineSpec; };
+#endif
+#ifdef _HUMANHEAD
+	virtual void				FixupKeyTranslations(const char *src, char *dst, int lengthAllocated) { (void) src; (void)dst; (void)lengthAllocated; }
+	virtual void				MaterialKeyForBinding(const char *binding, char *keyMaterial, char *key, bool &isBound) {
+		(void)binding; (void)keyMaterial; (void)key;
+		isBound = false;
+	}
+	virtual void				SetGameSensitivityFactor(float factor) { (void) factor; }
+#endif
 	SDL_TimerID					async_timer;
 };
 
@@ -2304,6 +2327,9 @@ void idCommonLocal::InitCommands( void ) {
 	cmdSystem->AddCommand( "dmap", Dmap_f, CMD_FL_TOOL, "compiles a map", idCmdSystem::ArgCompletion_MapName );
 	cmdSystem->AddCommand( "renderbump", RenderBump_f, CMD_FL_TOOL, "renders a bump map", idCmdSystem::ArgCompletion_ModelName );
 	cmdSystem->AddCommand( "renderbumpFlat", RenderBumpFlat_f, CMD_FL_TOOL, "renders a flat bump map", idCmdSystem::ArgCompletion_ModelName );
+#ifdef _RAVEN //k: for generate AAS file of mp game map and bot.
+	cmdSystem->AddCommand("botRunAAS", RunAAS_f, CMD_FL_GAME, "compiles an AAS file for a map for Quake 4 multiplayer-game", idCmdSystem::ArgCompletion_MapName);
+#endif
 	cmdSystem->AddCommand( "runAAS", RunAAS_f, CMD_FL_TOOL, "compiles an AAS file for a map", idCmdSystem::ArgCompletion_MapName );
 	cmdSystem->AddCommand( "runAASDir", RunAASDir_f, CMD_FL_TOOL, "compiles AAS files for all maps in a folder", idCmdSystem::ArgCompletion_MapName );
 	cmdSystem->AddCommand( "runReach", RunReach_f, CMD_FL_TOOL, "calculates reachability for an AAS file", idCmdSystem::ArgCompletion_MapName );
@@ -2380,9 +2406,17 @@ void idCommonLocal::PrintLoadingMessage( const char *msg ) {
 		return;
 	}
 	renderSystem->BeginFrame( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
+#ifdef _RAVEN // quake4 splash
+	renderSystem->DrawStretchPic(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1, 1, declManager->FindMaterial("gfx/splashScreen"));
+#else
 	renderSystem->DrawStretchPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1, 1, declManager->FindMaterial( "splashScreen" ) );
+#endif
 	int len = strlen( msg );
+#ifdef _RAVEN // quake4 bigchar font
+	renderSystem->DrawSmallStringExt((640 - len * SMALLCHAR_WIDTH) / 2, 410, msg, idVec4(0.94f, 0.62f, 0.05f, 1.0f), true, declManager->FindMaterial("fonts/english/bigchars"));
+#else
 	renderSystem->DrawSmallStringExt( ( 640 - len * SMALLCHAR_WIDTH ) / 2, 410, msg, idVec4( 0.0f, 0.81f, 0.94f, 1.0f ), true, declManager->FindMaterial( "textures/bigchars" ) );
+#endif
 	renderSystem->EndFrame( NULL, NULL );
 }
 
@@ -2630,6 +2664,19 @@ void idCommonLocal::LoadGameDLLbyName( const char *dll, idStr& s ) {
 	#endif
 }
 
+#ifdef _RAVEN // quake4 game dll
+#define _HARM_BASE_GAME_DLL "q4game"
+#elif defined(_HUMANHEAD) // prey game dll
+#define _HARM_BASE_GAME_DLL "preygame"
+#else
+#define _HARM_BASE_GAME_DLL "game"
+#endif
+
+// static idCVar	harm_fs_gameLibPath("harm_fs_gameLibPath", "", CVAR_SYSTEM | CVAR_INIT | CVAR_SERVERINFO, "Setup game dynamic library. e.g. "
+// 		"`<harm_fs_gameLibPath>/lib" _HARM_BASE_GAME_DLL DLL_SUFFIX "`, "
+// 		"default is empty will load by cvar `fs_game`."); // This cvar priority is higher than `fs_game`.
+// static idCVar	harm_fs_gameLibDir("harm_fs_gameLibDir", "", CVAR_SYSTEM | CVAR_INIT | CVAR_SERVERINFO, "Setup game dynamic library directory path(default is empty, means using `" _DEFAULT_LIBRARY_DIR "`).");
+
 /*
 =================
 idCommonLocal::LoadGameDLL
@@ -2691,6 +2738,9 @@ void idCommonLocal::LoadGameDLL( void ) {
 	gameImport.declManager				= ::declManager;
 	gameImport.AASFileManager			= ::AASFileManager;
 	gameImport.collisionModelManager	= ::collisionModelManager;
+#ifdef _RAVEN // bse
+	gameImport.bse						= ::bse;
+#endif
 
 	gameExport							= *GetGameAPI( &gameImport);
 
@@ -2758,6 +2808,7 @@ void idCommonLocal::SetMachineSpec( void ) {
 
 	Printf( "Detected\n\t%i MB of System memory\n\n", sysRam );
 
+// #if HARM_ONLY_DETECT_SYS_MEMORY
 	if ( sysRam >= 1024 ) {
 		Printf( "This system qualifies for Ultra quality!\n" );
 		com_machineSpec.SetInteger( 3 );
@@ -2771,6 +2822,23 @@ void idCommonLocal::SetMachineSpec( void ) {
 		Printf( "This system qualifies for Low quality.\n" );
 		com_machineSpec.SetInteger( 0 );
 	}
+// #else
+// 	if (ghz >= 2.75f && vidRam >= 512 && sysRam >= 1024) {
+// 		Printf("This system qualifies for Ultra quality!\n");
+// 		com_machineSpec.SetInteger(3);
+// 	} else if (ghz >= ((cpu & CPUID_AMD) ? 1.9f : 2.19f) && vidRam >= 256 && sysRam >= 512) {
+// 		Printf("This system qualifies for High quality!\n");
+// 		com_machineSpec.SetInteger(2);
+// 	} else if (ghz >= ((cpu & CPUID_AMD) ? 1.1f : 1.25f) && vidRam >= 128 && sysRam >= 384) {
+// 		Printf("This system qualifies for Medium quality.\n");
+// 		com_machineSpec.SetInteger(1);
+// 	} else {
+// 		Printf("This system qualifies for Low quality.\n");
+// 		com_machineSpec.SetInteger(0);
+// 	}
+
+// 	com_videoRam.SetInteger(vidRam);
+// #endif
 }
 
 static unsigned int AsyncTimer(unsigned int interval, void *) {

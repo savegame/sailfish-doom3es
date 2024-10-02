@@ -116,6 +116,16 @@ void idMaterial::CommonInit() {
 	suppressInSubview = false;
 	refCount = 0;
 	portalSky = false;
+#ifdef _RAVEN // quake4 for trace
+	materialType = 0;
+#endif
+#ifdef _HUMANHEAD
+	subviewClass = SC_MIRROR;
+	directPortalDistance = -1;
+#endif
+#ifdef _NO_LIGHT
+	noLight = false;
+#endif
 
 	decalInfo.stayTime = 10000;
 	decalInfo.fadeTime = 4000;
@@ -169,7 +179,14 @@ void idMaterial::FreeData() {
 				Mem_Free( stages[i].newStage );
 				stages[i].newStage = NULL;
 			}
+#ifdef _RAVEN //karin: GLSL newShaderStage
+			if (stages[i].newShaderStage != NULL) {
+				delete stages[i].newShaderStage;
+				stages[i].newShaderStage = NULL;
+			}
+#endif
 		}
+
 		R_StaticFree( stages );
 		stages = NULL;
 	}
@@ -273,6 +290,18 @@ static const infoParm_t	infoParms[] = {
 	{"wood",		0,  SURFTYPE_WOOD,		0 },	// wood
 	{"cardboard",	0,	SURFTYPE_CARDBOARD,	0 },	// cardboard
 	{"liquid",		0,	SURFTYPE_LIQUID,	0 },	// liquid
+#ifdef _HUMANHEAD
+    {"wallwalk",	0,	SURFTYPE_WALLWALK,	0 },	// plastic
+    {"matter_altmetal",	0,	SURFTYPE_ALTMETAL,	0 },	// behaves like metal but causes a ricochet sound
+
+    // unassigned surface types
+    {"forcefield",	0,	SURFTYPE_FORCEFIELD,	CONTENTS_FORCEFIELD },
+    {"pipe",	0,	SURFTYPE_PIPE,	0 },
+    {"spirit",	0,	SURFTYPE_SPIRIT,	0 },
+	{"vehicleclip",	0,	0,	CONTENTS_VEHICLECLIP },
+	{"hunterClip",	0,	0,	CONTENTS_HUNTERCLIP },
+    {"forcefield_nobullets",	1,	SURFTYPE_FORCEFIELD,	CONTENTS_FORCEFIELD },
+#else
 	{"glass",		0,	SURFTYPE_GLASS,		0 },	// glass
 	{"plastic",		0,	SURFTYPE_PLASTIC,	0 },	// plastic
 	{"ricochet",	0,	SURFTYPE_RICOCHET,	0 },	// behaves like metal but causes a ricochet sound
@@ -284,6 +313,18 @@ static const infoParm_t	infoParms[] = {
 	{"surftype13",	0,	SURFTYPE_13,	0 },
 	{"surftype14",	0,	SURFTYPE_14,	0 },
 	{"surftype15",	0,	SURFTYPE_15,	0 },
+#endif
+
+#ifdef _RAVEN //k: quake 4 material flags
+	{"vehicleclip",	0,	0,	CONTENTS_VEHICLECLIP },
+	{"flyclip",	0,	0,	CONTENTS_FLYCLIP },
+	{"largeshotclip",	0,	0,	CONTENTS_LARGESHOTCLIP },
+	{"shotclip",	0,	0,	0 },
+	{"projectileClip",	0,	0,	CONTENTS_PROJECTILECLIP },
+	{"notacticalfeatures",	0,	0,	CONTENTS_NOTACTICALFEATURES },
+	{"bounce",	0,	SURF_BOUNCE,	0 },
+	{"sightClip",	0,	0,	CONTENTS_SIGHTCLIP },
+#endif
 };
 
 static const int numInfoParms = sizeof(infoParms) / sizeof (infoParms[0]);
@@ -364,6 +405,10 @@ void idMaterial::ParseSort( idLexer &src ) {
 		sort = SS_POST_PROCESS;
 	} else if ( !token.Icmp( "portalSky" ) ) {
 		sort = SS_PORTAL_SKY;
+#ifdef _RAVEN
+	} else if (!token.Icmp("gui")) {
+		sort = SS_GUI;
+#endif
 	} else {
 		sort = atof( token );
 	}
@@ -606,6 +651,42 @@ int idMaterial::ParseTerm( idLexer &src ) {
 		pd->registersAreConstant = false;
 		return EXP_REG_GLOBAL7;
 	}
+
+#ifdef _RAVEN //k: quake4 material property
+	if (!token.Icmp("glslPrograms")) {
+		pd->registersAreConstant = false;
+		return EmitOp(0, 0, OP_TYPE_GLSL_ENABLED);
+		// return GetExpressionConstant(0.0f);
+	}
+	if (!token.Icmp("POTCorrectionX")) {
+		pd->registersAreConstant = false;
+		return EmitOp(0, 0, OP_TYPE_POT_X);
+		// return GetExpressionConstant(1.0f);
+	}
+	if (!token.Icmp("POTCorrectionY")) {
+		pd->registersAreConstant = false;
+		return EmitOp(0, 0, OP_TYPE_POT_Y);
+		// return GetExpressionConstant(1.0f);
+	}
+	if (!token.Icmp("DecalLife")) {
+		return GetExpressionConstant(0.0f);
+	}
+	if (!token.Icmp("IsMultiplayer")) {
+		return GetExpressionConstant(0.0f); // ((float)game->IsMultiplayer()); // constant???
+	}
+	if (!token.Icmp("VertexRandomizer")) {
+		return GetExpressionConstant(0.0f);
+	}
+#endif
+
+#ifdef _HUMANHEAD
+	if (!token.Icmp("distance")) {
+		// return GetExpressionConstant(0);
+		pd->registersAreConstant = false;
+		return EXP_REG_DISTANCE;
+	}
+#endif
+
 	if ( !token.Icmp( "fragmentPrograms" ) ) {
 		return GetExpressionConstant( (float) false );
 	}
@@ -748,6 +829,13 @@ void idMaterial::ClearStage( shaderStage_t *ss ) {
 	ss->color.registers[1] =
 	ss->color.registers[2] =
 	ss->color.registers[3] = GetExpressionConstant( 1 );
+#ifdef _HUMANHEAD //k: scope view support
+	ss->isScopeView = false;
+	ss->isNotScopeView = false;
+	ss->isSpiritWalk = false;
+	ss->isNotSpiritWalk = false;
+	ss->isShuttleView = false;
+#endif
 }
 
 /*
@@ -775,6 +863,16 @@ int idMaterial::NameToSrcBlendMode( const idStr &name ) {
 	} else if ( !name.Icmp( "GL_SRC_ALPHA_SATURATE" ) ) {
 		return GLS_SRCBLEND_ALPHA_SATURATE;
 	}
+#ifdef _RAVEN //k: quake4 blend
+	else if (!name.Icmp("GL_SRC_COLOR")) {
+		return GLS_SRCBLEND_SRC_COLOR;
+	}
+#endif
+#ifdef _HUMANHEAD
+	else if (!name.Icmp("shader")) {
+		return GLS_SRCBLEND_ONE;
+	}
+#endif
 
 	common->Warning( "unknown blend mode '%s' in material '%s'", name.c_str(), GetName() );
 	SetMaterialFlag( MF_DEFAULTED );
@@ -858,11 +956,23 @@ void idMaterial::ParseBlend( idLexer &src, shaderStage_t *stage ) {
 
 	srcBlend = NameToSrcBlendMode( token );
 
+#ifdef _HUMANHEAD
+	const bool usingShader = !idStr::Icmp(token, "shader");
+	if(usingShader)
+	{
+		dstBlend = GLS_DSTBLEND_ONE;
+	}
+	else
+	{
+#endif
 	MatchToken( src, "," );
 	if ( !src.ReadToken( &token ) ) {
 		return;
 	}
 	dstBlend = NameToDstBlendMode( token );
+#ifdef _HUMANHEAD
+	}
+#endif
 
 	stage->drawStateBits = srcBlend | dstBlend;
 }
@@ -1007,6 +1117,12 @@ void idMaterial::ParseFragmentMap( idLexer &src, newShaderStage_t *newStage ) {
 			continue;
 		}
 
+#ifdef _HUMANHEAD
+		if (!token.Icmp("highres")) {
+			continue;
+		}
+#endif
+
 		// assume anything else is the image name
 		src.UnreadToken( &token );
 		break;
@@ -1093,6 +1209,9 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 	int					a, b;
 	int					matrix[2][3];
 	newShaderStage_t	newStage;
+#ifdef _RAVEN //karin: GLSL newShaderStage
+	rvNewShaderStage	newShaderStage;
+#endif
 
 	if ( numStages >= MAX_SHADER_STAGES ) {
 		SetMaterialFlag( MF_DEFAULTED );
@@ -1145,6 +1264,13 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 			idStr::Copynz( imageName, str, sizeof( imageName ) );
 			continue;
 		}
+
+#ifdef _RAVEN // quake4 material property
+        if (!token.Icmp("nomips"))
+        {
+            continue;
+        }
+#endif
 
 		if (  !token.Icmp( "remoteRenderMap" ) ) {
 			ts->dynamic = DI_REMOTE_RENDER;
@@ -1304,6 +1430,10 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 				texGenRegisters[0] = ParseExpression( src );
 				texGenRegisters[1] = ParseExpression( src );
 				texGenRegisters[2] = ParseExpression( src );
+#ifdef _HUMANHEAD
+			} else if (!token.Icmp("screen")) {
+				ts->texgen = TG_SCREEN;
+#endif
 			} else {
 				common->Warning( "bad texGen '%s' in material %s", token.c_str(), GetName() );
 				SetMaterialFlag( MF_DEFAULTED );
@@ -1536,6 +1666,127 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 			continue;
 		}
 
+#ifdef _RAVEN //karin: GLSL newShaderStage
+		if (!token.Icmp("glslProgram")) {
+			newShaderStage.ParseGLSLProgram(src, this);
+#if 0
+			src.SkipRestOfLine();
+			//SetMaterialFlag(MF_DEFAULTED); // as default
+			/*
+			 blend blend
+			 // colored
+			 */
+			ss->drawStateBits = GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA;
+			/*
+			ss->color.registers[0] = EXP_REG_PARM0;
+			ss->color.registers[1] = EXP_REG_PARM1;
+			ss->color.registers[2] = EXP_REG_PARM2;
+			ss->color.registers[3] = EXP_REG_PARM3;
+			pd->registersAreConstant = false;
+			*/
+#endif
+			continue;
+		}
+		if (!token.Icmp("shaderParm")) {
+			if(newShaderStage.shaderProgram)
+				newShaderStage.ParseShaderParm(src, this);
+			else
+				src.SkipRestOfLine();
+#if 0
+			src.SkipRestOfLine();
+#endif
+			continue;
+		}
+		if (!token.Icmp("shaderTexture")) {
+			if(newShaderStage.shaderProgram)
+				newShaderStage.ParseShaderTexture(src, this);
+			else
+				src.SkipRestOfLine();
+#if 0
+			src.SkipRestOfLine();
+			/*
+			idToken t;
+			while(src.ReadTokenOnLine(&t))
+				idStr::Copynz(imageName, t.c_str(), sizeof(imageName));
+				*/
+#endif
+			continue;
+		}
+#endif
+
+#ifdef _HUMANHEAD
+        if (!token.Icmp("glowStage"))
+        {
+            continue;
+        }
+        if (!token.Icmp("specularEXP"))
+        {
+            idStr tmp;
+            src.ParseRestOfLine(tmp); // 2 float
+            continue;
+        }
+
+        if (!token.Icmp("fragmentparm")) {
+            src.SkipRestOfLine();
+            continue;
+        }
+        if (!token.Icmp("shaderFallback3")) {
+			continue;
+		}
+        if (!token.Icmp("shaderFallback2")) {
+			continue;
+		}
+        if (!token.Icmp("shaderFallback1")) {
+			continue;
+		}
+        if (!token.Icmp("scopeView")) { //k: scope view support
+			ss->isScopeView = true;
+			ss->isNotScopeView = false;
+			continue;
+		}
+        if (!token.Icmp("notScopeView")) { //k: scope view support
+			ss->isNotScopeView = true;
+			ss->isScopeView = false;
+			continue;
+		}
+        if (!token.Icmp("highres")) {
+			continue;
+		}
+        if (!token.Icmp("shaderLevel1")) {
+			continue;
+		}
+        if (!token.Icmp("shaderLevel2")) {
+			continue;
+		}
+        if (!token.Icmp("shaderLevel3")) {
+			continue;
+		}
+        if (!token.Icmp("shaderLevel1")) {
+			continue;
+		}
+        if (!token.Icmp("shuttleView")) {
+			ss->isShuttleView = true;
+			continue;
+		}
+        if (!token.Icmp("spiritWalk")) {
+			ss->isSpiritWalk = true;
+			ss->isNotSpiritWalk = false;
+			continue;
+		}
+        if (!token.Icmp("notSpiritWalk")) {
+			ss->isNotSpiritWalk = true;
+			ss->isSpiritWalk = false;
+			continue;
+		}
+        if (!token.Icmp("growIn")) { // it is color expression
+			src.SkipRestOfLine();
+			continue;
+		}
+        if (!token.Icmp("growOut")) { // it is color expression
+			src.SkipRestOfLine();
+			continue;
+		}
+#endif
 
 		common->Warning( "unknown token '%s' in material '%s'", token.c_str(), GetName() );
 		SetMaterialFlag( MF_DEFAULTED );
@@ -1548,6 +1799,13 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 		ss->newStage = (newShaderStage_t *)Mem_Alloc( sizeof( newStage ) );
 		*(ss->newStage) = newStage;
 	}
+#ifdef _RAVEN //karin: GLSL newShaderStage
+	if (newShaderStage.shaderProgram)
+	{
+		ss->newShaderStage = new rvNewShaderStage;
+		*ss->newShaderStage = newShaderStage;
+	}
+#endif
 
 	// successfully parsed a stage
 	numStages++;
@@ -1575,7 +1833,11 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 		if ( !ts->image ) {
 			ts->image = globalImages->defaultImage;
 		}
-	} else if ( !ts->cinematic && !ts->dynamic && !ss->newStage ) {
+	} else if (!ts->cinematic && !ts->dynamic && !ss->newStage
+#ifdef _RAVEN //karin: GLSL newShaderStage
+			&& !ss->newShaderStage
+#endif
+			) {
 		common->Warning( "material '%s' had stage with no image", GetName() );
 		ts->image = globalImages->defaultImage;
 	}
@@ -1661,6 +1923,27 @@ void idMaterial::ParseDeform( idLexer &src ) {
 		deformDecl = declManager->FindType( DECL_PARTICLE, token.c_str(), true );
 		return;
 	}
+#ifdef _HUMANHEAD //k: TODO deform type
+	if (!token.Icmp("corona")) {
+		cullType = CT_TWO_SIDED;
+		src.SkipRestOfLine();
+		SetMaterialFlag(MF_NOSHADOWS);
+		return;
+	}
+	if (!token.Icmp("jitter")) {
+		cullType = CT_TWO_SIDED;
+		src.SkipRestOfLine();
+		SetMaterialFlag(MF_NOSHADOWS);
+		return;
+	}
+	if (!token.Icmp("beam")) {
+		cullType = CT_TWO_SIDED;
+		src.SkipRestOfLine();
+		SetMaterialFlag(MF_NOSHADOWS);
+		return;
+	}
+#endif
+
 	src.Warning( "Bad deform type '%s'", token.c_str() );
 	SetMaterialFlag( MF_DEFAULTED );
 }
@@ -1787,10 +2070,13 @@ If there is any error during parsing, defaultShader will be set.
 */
 void idMaterial::ParseMaterial( idLexer &src ) {
 	idToken		token;
+	int			s;
 	char		buffer[1024];
 	const char	*str;
 	idLexer		newSrc;
 	int			i;
+
+	s = 0;
 
 	numOps = 0;
 	numRegisters = EXP_REG_NUM_PREDEFINED;	// leave space for the parms to be copied in
@@ -1821,6 +2107,13 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 			src.SkipRestOfLine();
 			continue;
 		}
+#ifdef _RAVEN // quake4 material property
+        else if (!token.Icmp("materialImage"))
+        {
+            src.ReadTokenOnLine(&token);
+            continue;
+        }
+#endif
 		// description
 		else if ( !token.Icmp( "description") ) {
 			src.ReadTokenOnLine( &token );
@@ -1849,6 +2142,53 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 			SetMaterialFlag( MF_NOSHADOWS );
 			continue;
 		}
+#ifdef _RAVEN // quake4 material property
+// jmarshall - possible legacy optimisations that aren't needed for current hardware.
+        else if (!token.Icmp("notfix"))
+        {
+            // Unknown what this is used for.
+            continue;
+        }
+				/*
+        else if (!token.Icmp("sightClip"))
+        {
+            // Unknown what this is used for.
+            continue;
+        }
+				*/
+        else if (!token.Icmp("sky"))
+        {
+            SetMaterialFlag(MF_SKY);
+            // Unknown what this is used for.
+            continue;
+        }
+        else if (!token.Icmp("needCurrentRender")) //karin: only for sniper scope GUI render in GLSL newShaderStage, require copy framebuffer to _currentRenderImage before render 2D GUI.
+        {
+            SetMaterialFlag(MF_NEED_CURRENT_RENDER);
+            continue;
+        }
+        else if (!token.Icmp("materialType"))
+        {
+            src.ReadToken(&token);
+            materialType = declManager->FindMaterialType(token);
+            continue;
+        }
+		else if (!token.Icmp("portalDistanceNear")) {
+			(void)src.ParseFloat(); // a number
+			continue;
+		}
+		else if (!token.Icmp("portalDistanceFar")) {
+			(void)src.ParseFloat(); // a number
+			continue;
+		}
+		else if (!token.Icmp("portalImage")) {
+			idToken unusedToken;
+			src.ReadToken(&unusedToken); // a image
+			(void)unusedToken;
+			continue;
+		}
+// jmarshall end
+#endif
 		else if ( !token.Icmp( "suppressInSubview" ) ) {
 			suppressInSubview = true;
 			continue;
@@ -2009,8 +2349,16 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 		}
 		// diffusemap for stage shortcut
 		else if ( !token.Icmp( "diffusemap" ) ) {
+#if defined(_RAVENxxx)
+// jmarshall - calling ParsePastImageProgram twice is a perf hit on load, and causes parsing problems during the stage parse.
+			idStr nstr;
+            src.ReadRestOfLine(nstr);
+			idStr::snPrintf(buffer, sizeof(buffer), "blend diffusemap\nmap %s\n}\n", nstr.c_str());
+// jmarshall end
+#else
 			str = R_ParsePastImageProgram( src );
 			idStr::snPrintf( buffer, sizeof( buffer ), "blend diffusemap\nmap %s\n}\n", str );
+#endif
 			newSrc.LoadMemory( buffer, strlen(buffer), "diffusemap" );
 			newSrc.SetFlags( LEXFL_NOFATALERRORS | LEXFL_NOSTRINGCONCAT | LEXFL_NOSTRINGESCAPECHARS | LEXFL_ALLOWPATHNAMES );
 			ParseStage( newSrc, trpDefault );
@@ -2019,8 +2367,16 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 		}
 		// specularmap for stage shortcut
 		else if ( !token.Icmp( "specularmap" ) ) {
+#if defined(_RAVENxxx)
+// jmarshall - calling ParsePastImageProgram twice is a perf hit on load, and causes parsing problems during the stage parse.
+			idStr nstr;
+            src.ReadRestOfLine(nstr);
+			idStr::snPrintf(buffer, sizeof(buffer), "blend specularmap\nmap %s\n}\n", nstr.c_str());
+// jmarshall end
+#else
 			str = R_ParsePastImageProgram( src );
 			idStr::snPrintf( buffer, sizeof( buffer ), "blend specularmap\nmap %s\n}\n", str );
+#endif
 			newSrc.LoadMemory( buffer, strlen(buffer), "specularmap" );
 			newSrc.SetFlags( LEXFL_NOFATALERRORS | LEXFL_NOSTRINGCONCAT | LEXFL_NOSTRINGESCAPECHARS | LEXFL_ALLOWPATHNAMES );
 			ParseStage( newSrc, trpDefault );
@@ -2029,8 +2385,16 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 		}
 		// normalmap for stage shortcut
 		else if ( !token.Icmp( "bumpmap" ) ) {
+#if defined(_RAVENxxx)
+// jmarshall - calling ParsePastImageProgram twice is a perf hit on load, and causes parsing problems during the stage parse.
+			idStr nstr;
+            src.ReadRestOfLine(nstr);
+			idStr::snPrintf(buffer, sizeof(buffer), "blend bumpmap\nmap %s\n}\n", nstr.c_str());
+// jmarshall end
+#else
 			str = R_ParsePastImageProgram( src );
 			idStr::snPrintf( buffer, sizeof( buffer ), "blend bumpmap\nmap %s\n}\n", str );
+#endif
 			newSrc.LoadMemory( buffer, strlen(buffer), "bumpmap" );
 			newSrc.SetFlags( LEXFL_NOFATALERRORS | LEXFL_NOSTRINGCONCAT | LEXFL_NOSTRINGESCAPECHARS | LEXFL_ALLOWPATHNAMES );
 			ParseStage( newSrc, trpDefault );
@@ -2052,9 +2416,115 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 
 			// noShadows
 			SetMaterialFlag( MF_NOSHADOWS );
+#ifdef _HUMANHEAD //karin: decal default using alphatest
+			coverage = MC_TRANSLUCENT;
+#endif
 			continue;
-		}
-		else if ( token == "{" ) {
+#ifdef _HUMANHEAD
+#define _SURFTYPE(x) ((x) | (surfaceFlags & (~SURF_TYPE_MASK)))
+		} else if (!token.Icmp("matter_metal")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_METAL);
+			continue;
+		} else if (!token.Icmp("matter_wood")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_WOOD);
+			continue;
+		} else if (!token.Icmp("matter_cardboard")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_CARDBOARD);
+			continue;
+		} else if (!token.Icmp("matter_tile")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_TILE);
+			continue;
+		} else if (!token.Icmp("matter_stone")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_STONE);
+			continue;
+		} else if (!token.Icmp("matter_flesh")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_FLESH);
+			continue;
+		} else if (!token.Icmp("matter_glass")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_GLASS);
+			continue;
+		} else if (!token.Icmp("matter_pipe")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_PIPE);
+			continue;
+		} else if (!token.Icmp("decal_alphatest_macro")) {
+			// polygonOffset
+			SetMaterialFlag(MF_POLYGONOFFSET);
+			polygonOffset = 1;
+
+			// discrete
+			surfaceFlags |= SURF_DISCRETE;
+			contentFlags &= ~CONTENTS_SOLID;
+
+			// sort decal
+			sort = SS_DECAL;
+
+			// noShadows
+			SetMaterialFlag(MF_NOSHADOWS);
+
+			coverage = MC_TRANSLUCENT;
+			continue;
+		} else if (!token.Icmp("skipClip")) {
+			SetMaterialFlag(MF_SKIPCLIP);
+			continue;
+		} else if (!token.Icmp("noSeeThru")) {
+			continue;
+		} else if (!token.Icmp("seeThru")) {
+			continue;
+		} else if (!token.Icmp("overlay_macro")) {
+			continue;
+		} else if (!token.Icmp("scorch_macro")) {
+			//karin: same as `DECAL_MACRO` for weapon projectile scorches
+			// polygonOffset
+			SetMaterialFlag(MF_POLYGONOFFSET);
+			polygonOffset = 1;
+
+			// discrete
+			surfaceFlags |= SURF_DISCRETE;
+			contentFlags &= ~CONTENTS_SOLID;
+
+			// sort decal
+			sort = SS_DECAL;
+
+			// noShadows
+			SetMaterialFlag(MF_NOSHADOWS);
+
+			coverage = MC_TRANSLUCENT;
+			continue;
+		} else if (!token.Icmp("glass_macro")) {
+			surfaceFlags = _SURFTYPE(SURFTYPE_GLASS);
+			continue;
+		} else if (!token.Icmp("skybox_macro")) {
+			surfaceFlags |= SURF_NOFRAGMENT;
+			coverage = MC_OPAQUE;
+			allowOverlays = false;
+			SetMaterialFlag(MF_NOSHADOWS);
+			continue;
+		} else if (!token.Icmp("lightWholeMesh")) {
+			SetMaterialFlag(MF_LIGHT_WHOLE_MESH);
+			continue;
+		} else if (!token.Icmp("skyboxportal")) {
+			src.SkipRestOfLine();
+			sort = SS_SUBVIEW;
+			subviewClass = SC_PORTAL_SKYBOX;
+			continue;
+		} else if (!token.Icmp("directportal")) { // with a parm: e.g. directportal parm5
+			directPortalDistance = ParseExpression(src);
+			sort = SS_SUBVIEW;
+			subviewClass = SC_PORTAL;
+			coverage = MC_OPAQUE;
+			SetMaterialFlag(MF_NOSHADOWS);
+			idToken t;
+			t = "discrete";
+			CheckSurfaceParm(&t);
+			continue;
+#undef _SURFTYPE
+#endif
+#ifdef _NO_LIGHT
+		} else if (!token.Icmp("noLight")) {
+			noLight = true;
+			continue;
+#endif
+		} else if (token == "{") {
 			// create the new stage
 			ParseStage( src, trpDefault );
 			continue;
@@ -2121,7 +2591,12 @@ idMaterial::Parse
 Parses the current material definition and finds all necessary images.
 =========================
 */
-bool idMaterial::Parse( const char *text, const int textLength ) {
+#ifdef _RAVEN
+bool idMaterial::Parse(const char *text, const int textLength, bool noCaching)
+#else
+bool idMaterial::Parse(const char *text, const int textLength)
+#endif
+{
 	idLexer	src;
 	idToken	token;
 	mtrParsingData_t parsingData;
@@ -2241,6 +2716,29 @@ bool idMaterial::Parse( const char *text, const int textLength ) {
 				}
 			}
 		}
+#ifdef _RAVEN //karin: GLSL newShaderStage
+		if (pStage->newShaderStage) {
+			bool postProcess = false;
+			for (int j = 0 ; j < pStage->newShaderStage->numShaderTextures ; j++) {
+				if (pStage->newShaderStage->shaderTextures[j].value == globalImages->currentRenderImage) {
+					if (sort != SS_PORTAL_SKY && sort != SS_GUI) {
+                        //karin: setup MF_NEED_CURRENT_RENDER flag, so don't SetSort to SS_GUI for post-process stage in GUI window
+/*                        if(sort == SS_GUI)
+                            SetMaterialFlag(MF_NEED_CURRENT_RENDER);*/
+						sort = SS_POST_PROCESS;
+						coverage = MC_TRANSLUCENT;
+					}
+					postProcess = true;
+
+					i = numStages;
+					break;
+				}
+			}
+			//karin: don't render 2D GUIs to currentRenderImage when start render 2D
+			if(postProcess && TestMaterialFlag(MF_NEED_CURRENT_RENDER) && sort == SS_GUI)
+				sort = SS_PREGUI;
+		}
+#endif
 	}
 
 	// set the drawStateBits depth flags
@@ -2365,6 +2863,18 @@ static const char *opNames[] = {
 	"OP_TYPE_NE",
 	"OP_TYPE_AND",
 	"OP_TYPE_OR"
+#ifdef _RAVEN //karin: GLSL newShaderStage
+	// RAVEN BEGIN
+// rjohnson: new shader stage system
+	,
+	"OP_TYPE_GLSL_ENABLED",
+	"OP_TYPE_POT_X",
+	"OP_TYPE_POT_Y",
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+	, "OP_TYPE_FRAGMENTPROGRAMS" // HUMANHEAD CJR:  Added so fragment programs support can be toggled
+#endif
 };
 
 void idMaterial::Print() const {
@@ -2443,6 +2953,9 @@ void idMaterial::EvaluateRegisters( float *registers, const float shaderParms[MA
 	registers[EXP_REG_PARM9] = shaderParms[9];
 	registers[EXP_REG_PARM10] = shaderParms[10];
 	registers[EXP_REG_PARM11] = shaderParms[11];
+#ifdef _HUMANHEAD
+	registers[EXP_REG_DISTANCE] = shaderParms[12];
+#endif
 	registers[EXP_REG_GLOBAL0] = view->renderView.shaderParms[0];
 	registers[EXP_REG_GLOBAL1] = view->renderView.shaderParms[1];
 	registers[EXP_REG_GLOBAL2] = view->renderView.shaderParms[2];
@@ -2509,6 +3022,33 @@ void idMaterial::EvaluateRegisters( float *registers, const float shaderParms[MA
 		case OP_TYPE_OR:
 			registers[op->c] = registers[ op->a ] || registers[op->b];
 			break;
+#ifdef _RAVEN //karin: calc dynamic variants on material stage
+			case OP_TYPE_GLSL_ENABLED: { //karin: GLSL shader stage is enabled current
+					float f = 0.0;
+					if (stages && !r_skipNewAmbient.GetBool()) {
+						for (int m = 0; m < numStages; m++) {
+							if (stages[ m ].newShaderStage && stages[ m ].newShaderStage->IsValid()) {
+								f = 1.0;
+								break;
+							}
+						}
+					}
+					registers[op->c] = f;
+				}
+				break;
+			case OP_TYPE_POT_X: { //karin: screen width and power of two width
+					int w = backEnd.viewDef->viewport.x2 - backEnd.viewDef->viewport.x1 + 1;
+					int potw = globalImages->currentRenderImage->uploadWidth;
+					registers[op->c] = (float) w / (float) potw;
+				}
+				break;
+			case OP_TYPE_POT_Y: { //karin: screen height and power of two height
+					int h = backEnd.viewDef->viewport.y2 - backEnd.viewDef->viewport.y1 + 1;
+					int poth = globalImages->currentRenderImage->uploadHeight;
+					registers[op->c] = (float) h / (float) poth;
+				}
+				break;
+#endif
 		default:
 			common->FatalError( "R_EvaluateExpression: bad opcode" );
 		}
@@ -2750,8 +3290,32 @@ void idMaterial::ReloadImages( bool force ) const
 					stages[i].newStage->fragmentProgramImages[j]->Reload( force );
 				}
 			}
+#ifdef _RAVEN //karin: GLSL newShaderStage
+		} else if (stages[i].newShaderStage) {
+			stages[i].newShaderStage->ReloadImages(force);
+#endif
 		} else if ( stages[i].texture.image ) {
 			stages[i].texture.image->Reload( force );
 		}
 	}
 }
+
+#ifdef _RAVEN
+#include "../sound/snd_local.h"
+void idMaterial::EvaluateRegisters( float *regs, const float entityParms[MAX_ENTITY_SHADER_PARMS], const struct viewDef_s *view, int soundEmitter, idVec3 *randomizer ) const
+{
+	(void)randomizer;
+	idSoundEmitter *emitter = NULL;
+
+	if(soundEmitter > 0)
+	{
+		idSoundWorld *soundWorld = soundSystem->GetSoundWorldFromId(SOUNDWORLD_GAME);
+		if(soundWorld && soundEmitter < static_cast<idSoundWorldLocal *>(soundWorld)->emitters.Num()) //??? safety ???
+		{
+			emitter = soundSystem->EmitterForIndex(SOUNDWORLD_GAME, soundEmitter);
+		}
+	}
+
+	this->EvaluateRegisters(regs, entityParms, view, emitter);
+}
+#endif

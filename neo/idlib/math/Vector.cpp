@@ -40,6 +40,11 @@ idVec5 vec5_origin( 0.0f, 0.0f, 0.0f, 0.0f, 0.0f );
 idVec6 vec6_origin( 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f );
 idVec6 vec6_infinity( idMath::INFINITY, idMath::INFINITY, idMath::INFINITY, idMath::INFINITY, idMath::INFINITY, idMath::INFINITY );
 
+#ifdef _RAVEN
+idVec4 vec4_one( 1.0f, 1.0f, 1.0f, 1.0f );
+#endif
+
+
 //===============================================================
 //
 //	idVec2
@@ -398,3 +403,83 @@ idVecX::ToString
 const char *idVecX::ToString( int precision ) const {
 	return idStr::FloatArrayToString( ToFloatPtr(), GetDimension(), precision );
 }
+
+#ifdef _RAVEN
+
+/*
+=============
+idVec3::ToMat3
+=============
+*/
+// RAVEN BEGIN
+// abahr: added axis so we can create matrix with non-x vector
+idMat3 idVec3::ToMat3( int axis ) const {
+	idMat3	mat;
+	float	d;
+	int		index_x = axis % GetDimension();
+	int		index_y = (axis + 1) % GetDimension();
+	int		index_z = (axis + 2) % GetDimension();
+	float	local_x = (*this)[index_x];
+	float	local_y = (*this)[index_y];
+
+	mat[axis] = *this;
+	d = local_x * local_x + local_y * local_y;
+	if ( !d ) {
+		mat[index_y][index_x] = 1.0f;
+		mat[index_y][index_y] = 0.0f;
+		mat[index_y][index_z] = 0.0f;
+	} else {
+		d = idMath::InvSqrt( d );
+		mat[index_y][index_x] = -local_y * d;
+		mat[index_y][index_y] = local_x * d;
+		mat[index_y][index_z] = 0.0f;
+	}
+	mat[index_z] = Cross( mat[index_y] );
+
+	return mat;
+}
+#endif
+
+#ifdef _HUMANHEAD
+/*
+=============
+idVec3::hhToMat3
+=============
+*/
+idMat3 idVec3::hhToMat3( void ) const {
+	idVec3	left;
+	idVec3	down;
+
+	// NormalVectors actually returns left and down
+	NormalVectors( left, down );
+	return idMat3( *this, left, -down );
+}
+
+// HUMANHEAD PDM: Vector conversion to/from axis aligned direction masks (6-bit vector compression)
+int idVec3::DirectionMask() const {
+	int mask = 0;
+	for (int term=0; term<3; term++) {
+		mask += (*this)[term]<0 ? 1<<(term<<1) : (*this)[term]>0 ? 1<<((term<<1)+1) : 0;
+	}
+	return mask;
+}
+ 
+idVec3::idVec3(int directionMask) {
+	int negativeMask, positiveMask;
+	for (int term=0; term<3; term++) {
+		negativeMask = 1 << (term<<1);
+		positiveMask = 1 << ((term<<1)+1);
+		(*this)[term] = (directionMask & negativeMask) ? -1 : (directionMask & positiveMask) ? 1 : 0;
+	}
+}
+
+idVec3 idVec3::ToNormal() const {
+	float sqrLength, invLength;
+
+	sqrLength = x * x + y * y + z * z;
+	invLength = idMath::InvSqrt( sqrLength );
+	return *this * invLength;
+}
+// HUMANHEAD END
+#endif
+

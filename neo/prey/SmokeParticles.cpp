@@ -5,6 +5,7 @@
 #pragma hdrstop
 
 #include "Game_local.h"
+#include "../humanhead/idlib/math/prey_math.h"
 
 static const char *smokeParticle_SnapshotName = "_SmokeParticle_Snapshot_";
 

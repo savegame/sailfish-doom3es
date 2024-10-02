@@ -12,6 +12,9 @@
 
 
 #include "Game_local.h"
+#include "../idlib/LangDict.h"
+#include "../idlib/geometry/JointTransform.h"
+#include "../humanhead/idlib/math/prey_math.h"
 
 //HUMANHEAD: aob - needed for helper functions
 #include "Prey/ai_speech.h"
@@ -1898,7 +1901,7 @@ bool idEntity::StartSoundShader( const idSoundShader *shader, const s_channelTyp
 
 		msg.Init( msgBuf, sizeof( msgBuf ) );
 		msg.BeginWriting();
-		msg.WriteLong( gameLocal.ServerRemapDecl( -1, DECL_SOUND, shader->Index() ) );
+		msg.WriteInt( gameLocal.ServerRemapDecl( -1, DECL_SOUND, shader->Index() ) );
 		msg.WriteByte( channel );
 		ServerSendEvent( EVENT_STARTSOUNDSHADER, &msg, false, -1, -1, true ); //HUMANHEAD rww - flag as unreliable
 	}
@@ -5143,7 +5146,7 @@ void idEntity::WriteColorToSnapshot( idBitMsgDelta &msg ) const {
 	color[1] = renderEntity.shaderParms[ SHADERPARM_GREEN ];
 	color[2] = renderEntity.shaderParms[ SHADERPARM_BLUE ];
 	color[3] = renderEntity.shaderParms[ SHADERPARM_ALPHA ];
-	msg.WriteLong( PackColor( color ) );
+	msg.WriteInt( PackColor( color ) );
 }
 
 /*
@@ -5154,7 +5157,7 @@ idEntity::ReadColorFromSnapshot
 void idEntity::ReadColorFromSnapshot( const idBitMsgDelta &msg ) {
 	idVec4 color;
 
-	UnpackColor( msg.ReadLong(), color );
+	UnpackColor( msg.ReadInt(), color );
 	renderEntity.shaderParms[ SHADERPARM_RED ] = color[0];
 	renderEntity.shaderParms[ SHADERPARM_GREEN ] = color[1];
 	renderEntity.shaderParms[ SHADERPARM_BLUE ] = color[2];
@@ -5241,7 +5244,7 @@ void idEntity::ServerSendPVSEvent( int eventId, const idBitMsg *msg, const idVec
 	outMsg.WriteByte( GAME_RELIABLE_MESSAGE_EVENT );	
 	outMsg.WriteBits( gameLocal.GetSpawnId( this ), 32 );
 	outMsg.WriteByte( eventId );
-	outMsg.WriteLong( gameLocal.time );
+	outMsg.WriteInt( gameLocal.time );
 #ifdef _HH_NET_EVENT_TYPE_VALIDATION //HUMANHEAD rww
 	outMsg.WriteBits(GetType()->typeNum, idClass::GetTypeNumBits());
 #endif //HUMANHEAD END
@@ -5325,7 +5328,7 @@ void idEntity::ServerSendEvent( int eventId, const idBitMsg *msg, bool saveEvent
 	outMsg.WriteByte( GAME_RELIABLE_MESSAGE_EVENT );	
 	outMsg.WriteBits( gameLocal.GetSpawnId( this ), 32 );
 	outMsg.WriteByte( eventId );
-	outMsg.WriteLong( gameLocal.time );
+	outMsg.WriteInt( gameLocal.time );
 #ifdef _HH_NET_EVENT_TYPE_VALIDATION //HUMANHEAD rww
 	outMsg.WriteBits(GetType()->typeNum, idClass::GetTypeNumBits());
 #endif //HUMANHEAD END
@@ -5417,7 +5420,7 @@ void idEntity::ClientSendEvent( int eventId, const idBitMsg *msg ) const {
 	outMsg.WriteByte( GAME_RELIABLE_MESSAGE_EVENT );
 	outMsg.WriteBits( gameLocal.GetSpawnId( this ), 32 );
 	outMsg.WriteByte( eventId );
-	outMsg.WriteLong( gameLocal.time );
+	outMsg.WriteInt( gameLocal.time );
 #ifdef _HH_NET_EVENT_TYPE_VALIDATION //HUMANHEAD rww
 	outMsg.WriteBits(GetType()->typeNum, idClass::GetTypeNumBits());
 #endif //HUMANHEAD END
@@ -5475,7 +5478,7 @@ bool idEntity::ClientReceiveEvent( int event, int time, const idBitMsg &msg ) {
 				common->DPrintf( "ent 0x%x: start sound shader too old (%d ms)\n", entityNumber, gameLocal.realClientTime - time );
 				return true;
 			}
-			index = gameLocal.ClientRemapDecl( DECL_SOUND, msg.ReadLong() );
+			index = gameLocal.ClientRemapDecl( DECL_SOUND, msg.ReadInt() );
 			if ( index >= 0 && index < declManager->GetNumDecls( DECL_SOUND ) ) {
 				//HUMANHEAD rww - forceParse true instead of false so that we're sure to play things that weren't precached right.
 				//this should be able to go away at some point, hopefully.
@@ -5948,8 +5951,8 @@ void idAnimatedEntity::AddDamageEffect( const trace_t &collision, const idVec3 &
 		msg.WriteFloat( localOrigin[2] );
 		msg.WriteDir( localNormal, 24 );
 		msg.WriteDir( localDir, 24 );
-		msg.WriteLong( gameLocal.ServerRemapDecl( -1, DECL_ENTITYDEF, def->Index() ) );
-		msg.WriteLong( gameLocal.ServerRemapDecl( -1, DECL_MATERIAL, collision.c.material->Index() ) );
+		msg.WriteInt( gameLocal.ServerRemapDecl( -1, DECL_ENTITYDEF, def->Index() ) );
+		msg.WriteInt( gameLocal.ServerRemapDecl( -1, DECL_MATERIAL, collision.c.material->Index() ) );
 		ServerSendEvent( EVENT_ADD_DAMAGE_EFFECT, &msg, false, -1 );
 	}
 */
@@ -6098,8 +6101,8 @@ bool idAnimatedEntity::ClientReceiveEvent( int event, int time, const idBitMsg &
 			localOrigin[2] = msg.ReadFloat();
 			localNormal = msg.ReadDir( 24 );
 			localDir = msg.ReadDir( 24 );
-			damageDefIndex = gameLocal.ClientRemapDecl( DECL_ENTITYDEF, msg.ReadLong() );
-			materialIndex = gameLocal.ClientRemapDecl( DECL_MATERIAL, msg.ReadLong() );
+			damageDefIndex = gameLocal.ClientRemapDecl( DECL_ENTITYDEF, msg.ReadInt() );
+			materialIndex = gameLocal.ClientRemapDecl( DECL_MATERIAL, msg.ReadInt() );
 			const idDeclEntityDef *damageDef = static_cast<const idDeclEntityDef *>( declManager->DeclByIndex( DECL_ENTITYDEF, damageDefIndex ) );
 			const idMaterial *collisionMaterial = static_cast<const idMaterial *>( declManager->DeclByIndex( DECL_MATERIAL, materialIndex ) );
 			AddLocalDamageEffect( jointNum, localOrigin, localNormal, localDir, damageDef, collisionMaterial );

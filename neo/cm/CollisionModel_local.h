@@ -192,7 +192,29 @@ typedef struct cm_model_s {
 	int						numRemovedPolys;
 	int						numMergedPolys;
 	int						usedMemory;
-} cm_model_t;
+
+#ifdef _RAVEN // quake4 trm
+	bool					isTrmModel;
+	bool markRemove; //k: if ture, marked can replace
+	bool isTraceModel; //k: if true, returned by ModelFromTrm
+	cm_polygonRef_t *_trmPolygons[MAX_TRACEMODEL_POLYS];
+	cm_brushRef_t *_trmBrushes[1];
+	int refCount;
+
+	cm_model_t(void);
+
+	virtual const char *		GetName( void ) const;
+	virtual bool				GetBounds( idBounds &bounds ) const;
+	virtual bool				GetContents( int &contents ) const;
+	virtual bool				GetVertex( int vertexNum, idVec3 &vertex ) const;
+	virtual bool				GetEdge( int edgeNum, idVec3 &start, idVec3 &end ) const;
+	virtual bool				GetPolygon( int polygonNum, idFixedWinding &winding ) const;
+#endif
+}
+#if !defined(_RAVEN)
+ cm_model_t
+#endif
+ ;
 
 /*
 ===============================================================================
@@ -295,8 +317,47 @@ class idCollisionModelManagerLocal : public idCollisionModelManager {
 public:
 	// load collision models from a map file
 	void			LoadMap( const idMapFile *mapFile );
+#ifdef _HUMANHEAD
+// HUMANHEAD pdm: Support for level appending
+	virtual const char *	ContentsName(const int contents) const { return StringFromContents(contents); }
+#if DEATHWALK_AUTOLOAD
+	virtual void			AppendMap( const idMapFile *mapFile );
+	virtual bool			WillUseAlreadyLoadedCollisionMap(const idMapFile *mapFile);
+#endif
+// HUMANHEAD END
+#endif
 	// frees all the collision models
 	void			FreeMap( void );
+
+#ifdef _RAVEN
+	virtual void	FreeModel(cmHandle_t model);
+	void			FreeMap(const char* mapName) { FreeMap(); };
+	// Loads collision models from a map file.
+	void			LoadMap( const idMapFile *mapFile, bool forceCreateMap );
+
+	// create trace model from a collision model, returns true if succesfull
+	bool			TrmFromModel(const char* mapName, const char *modelName, idTraceModel &trm ) { (void)mapName; return TrmFromModel(modelName, trm); }; //k DIFF_IMPL
+
+	// sets up a trace model for collision with other trace models
+	cmHandle_t ModelFromTrm(const char* mapName, const char* modelName, const idTraceModel &trm, const idMaterial *material );
+
+	// get clip handle for model
+	virtual cmHandle_t LoadModel(const char* mapName, const char *modelName, const bool precache ) {
+		(void)mapName;
+		return LoadModel(modelName, precache);
+	}
+	virtual int     GetNumInlinedProcClipModels(void) { return numInlinedProcClipModels; }
+	virtual cmHandle_t PreCacheModel(const char* mapName, const char *modelName ) {
+		(void)mapName;
+		return LoadModel(modelName, true);
+	}
+
+	virtual void				DebugOutput( const idVec3 &viewOrigin, const idMat3 &viewAxis ) {
+		(void)viewAxis;
+		DebugOutput(viewOrigin);
+	}
+		virtual  void	DrawModel(cmHandle_t handle, const idVec3& modelOrigin, const idMat3& modelAxis, const idVec3& viewOrigin, const idMat3& viewAxis, const float radius) { (void)handle; (void)modelOrigin; (void)modelAxis; (void)viewOrigin; (void)viewAxis; (void)radius; }
+#endif
 
 	// get clip handle for model
 	cmHandle_t		LoadModel( const char *modelName, const bool precache );
@@ -340,11 +401,22 @@ public:
 	void			DrawModel( cmHandle_t model, const idVec3 &origin, const idMat3 &axis,
 											const idVec3 &viewOrigin, const float radius );
 	// print model information, use -1 handle for accumulated model info
+#ifdef _RAVEN
+		void			ModelInfo(int num);
+#else
 	void			ModelInfo( cmHandle_t model );
 	// list all loaded models
+		// list all loaded models
 	void			ListModels( void );
 	// write a collision model file for the map entity
 	bool			WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
+
+	//HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+	int				GetNumInlinedProcClipModels(void);
+#endif
+	//HUMANHEAD END
+#endif
 
 private:			// CollisionMap_translate.cpp
 	int				TranslateEdgeThroughEdge( idVec3 &cross, idPluecker &l1, idPluecker &l2, float *fraction );
@@ -412,6 +484,11 @@ private:			// CollisionMap_load.cpp
 	void			FreePolygon( cm_model_t *model, cm_polygon_t *poly );
 	void			FreeBrush( cm_model_t *model, cm_brush_t *brush );
 	void			FreeTree_r( cm_model_t *model, cm_node_t *headNode, cm_node_t *node );
+#ifdef _RAVEN
+	cm_model_t 	*AllocModel(cm_model_t * &model);
+	void ClearModel(cm_model_t *model);
+	void			FreeModel_memory(cm_model_t *model);
+#else
 	void			FreeModel( cm_model_t *model );
 					// merging polygons
 	void			ReplacePolygons( cm_model_t *model, cm_node_t *node, cm_polygon_t *p1, cm_polygon_t *p2, cm_polygon_t *newp );
@@ -426,6 +503,13 @@ private:			// CollisionMap_load.cpp
 	void			FindContainedEdges( cm_model_t *model, cm_polygon_t *p );
 					// loading of proc BSP tree
 	void			ParseProcNodes( idLexer *src );
+#ifdef _HUMANHEAD
+	//HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+	void			CheckProcModelSurfClip(idLexer *src);
+#endif
+	//HUMANHEAD END
+#endif
 	void			LoadProcBSP( const char *name );
 					// removal of contained polygons
 	int				R_ChoppedAwayByProcBSP( int nodeNum, idFixedWinding *w, const idVec3 &normal, const idVec3 &origin, const float radius );
@@ -467,6 +551,9 @@ private:			// CollisionMap_load.cpp
 	void			OptimizeArrays( cm_model_t *model );
 	void			FinishModel( cm_model_t *model );
 	void			BuildModels( const idMapFile *mapFile );
+#ifdef _RAVEN
+	void			BuildModels( const idMapFile *mapFile, bool forceCreateMap);
+#endif
 	cmHandle_t		FindModel( const char *name );
 	cm_model_t *	CollisionModelForMapEntity( const idMapEntity *mapEnt );	// brush/patch model from .map
 	cm_model_t *	LoadRenderModel( const char *fileName );					// ASE/LWO models
@@ -497,10 +584,23 @@ private:			// CollisionMap_debug
 	void			DrawEdge( cm_model_t *model, int edgeNum, const idVec3 &origin, const idMat3 &axis );
 	void			DrawPolygon( cm_model_t *model, cm_polygon_t *p, const idVec3 &origin, const idMat3 &axis,
 								const idVec3 &viewOrigin );
+#ifdef _RAVEN
+public:
+#endif
 	void			DrawNodePolygons( cm_model_t *model, cm_node_t *node, const idVec3 &origin, const idMat3 &axis,
 								const idVec3 &viewOrigin, const float radius );
 
 private:			// collision map data
+	//k v3 .cm file parse
+	bool			ParseCollisionModel_v3(idLexer *src);
+	void			ParsePolygons_v3(idLexer *src, cm_model_t *model);
+	void			ParseBrushes_v3(idLexer *src, cm_model_t *model);
+	cmHandle_t		FindModelAndIndex(const char *name, int &index);
+
+	int				numInlinedProcClipModels;
+#endif
+
+	private:			// collision map data
 	idStr			mapName;
 	ID_TIME_T			mapFileTime;
 	int				loaded;
@@ -522,6 +622,15 @@ private:			// collision map data
 	contactInfo_t *	contacts;
 	int				maxContacts;
 	int				numContacts;
+#ifdef _HUMANHEAD
+	//HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+	idList<const char *>	inlinedProcClipModelMats;
+	int						numInlinedProcClipModels;
+	bool					anyInlinedProcClipMats;
+#endif
+	//HUMANHEAD END
+#endif
 };
 
 // for debugging

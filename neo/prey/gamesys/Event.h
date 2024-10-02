@@ -22,7 +22,7 @@ Event are used for scheduling tasks and for linking script commands.
 
 #define MAX_EVENTS					4096
 
-#ifdef _PREY
+#ifdef _HUMANHEAD
 #if defined(__aarch64__) || defined(__x86_64__) || defined(__e2k__)
 #define D_EVENT_INTPTR		'y'
 #endif

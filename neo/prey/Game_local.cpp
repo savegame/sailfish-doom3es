@@ -12,20 +12,20 @@
 
 #ifdef GAME_DLL
 
-idSys *						sys = NULL;
-idCommon *					common = NULL;
-idCmdSystem *				cmdSystem = NULL;
-idCVarSystem *				cvarSystem = NULL;
-idFileSystem *				fileSystem = NULL;
-idNetworkSystem *			networkSystem = NULL;
-idRenderSystem *			renderSystem = NULL;
-idSoundSystem *				soundSystem = NULL;
-idRenderModelManager *		renderModelManager = NULL;
-idUserInterfaceManager *	uiManager = NULL;
-idDeclManager *				declManager = NULL;
-idAASFileManager *			AASFileManager = NULL;
-idCollisionModelManager *	collisionModelManager = NULL;
-idCVar *					idCVar::staticVars = NULL;
+extern idSys *                   sys;
+extern idCommon *                common;// = NULL;
+extern idCmdSystem *             cmdSystem;
+extern idCVarSystem *            cvarSystem;
+extern idFileSystem *            fileSystem;
+extern idNetworkSystem *         networkSystem;
+extern idRenderSystem *          renderSystem;
+extern idSoundSystem *           soundSystem;
+extern idRenderModelManager *    renderModelManager;
+extern idUserInterfaceManager *  uiManager;
+extern idDeclManager *           declManager;
+idAASFileManager *               AASFileManager = NULL;
+idCollisionModelManager *        collisionModelManager = NULL;
+// extern idCVar *             idCVar::staticVars;
 
 // HUMANHEAD pdm
 #if INGAME_PROFILER_ENABLED
@@ -33,7 +33,7 @@ hhProfiler *				profiler = NULL;
 #endif
 // HUMANHEAD END
 
-idCVar com_forceGenericSIMD( "com_forceGenericSIMD", "0", CVAR_BOOL|CVAR_SYSTEM, "force generic platform independent SIMD" );
+extern idCVar com_forceGenericSIMD;//( "com_forceGenericSIMD", "0", CVAR_BOOL|CVAR_SYSTEM, "force generic platform independent SIMD" );
 idCVar g_printlocations( "g_printlocations", "0", CVAR_BOOL, "print area/location mappings");
 
 #endif
@@ -1465,11 +1465,8 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 		if ( !idGameLocal::InhibitEntitySpawn( mapEnt->epairs ) ) { // HUMANHEAD mdl:  Need this to call the original function
 			CacheDictionaryMedia( &mapEnt->epairs );
 			const char *classname = mapEnt->epairs.GetString( "classname" );
-#ifdef _K_CLANG //k
+
 			if ( classname && classname[0] ) {
-#else
-			if ( classname != '\0' ) {
-#endif
 				FindEntityDef( classname, false );
 			}
 		}
@@ -1931,11 +1928,8 @@ void idGameLocal::GetShakeSounds( const idDict *dict ) {
 	idStr soundName;
 
 	soundShaderName = dict->GetString( "s_shader" );
-#ifdef _K_CLANG //k
+
 	if ( soundShaderName && soundShaderName[0] && dict->GetFloat("s_shakes") != 0.0f ) {
-#else
-	if ( soundShaderName != '\0' && dict->GetFloat( "s_shakes" ) != 0.0f ) {
-#endif
 		soundShader = declManager->FindSound( soundShaderName );
 
 		for ( int i = 0; i < soundShader->GetNumSounds(); i++ ) {
@@ -2874,10 +2868,10 @@ void idGameLocal::CalcFov( float base_fov, float &fov_x, float &fov_y ) const {
 	float	ratio_x;
 	float	ratio_y;
 	
-	if ( !sys->FPU_StackIsEmpty() ) {
-		Printf( sys->FPU_GetState() );
-		Error( "idGameLocal::CalcFov: FPU stack not empty" );
-	}
+	// if ( !sys->FPU_StackIsEmpty() ) {
+	// 	Printf( sys->FPU_GetState() );
+	// 	Error( "idGameLocal::CalcFov: FPU stack not empty" );
+	// }
 
 	// first, calculate the vertical fov based on a 640x480 view
 	x = 640.0f / tan( base_fov / 360.0f * idMath::PI );
@@ -2887,7 +2881,7 @@ void idGameLocal::CalcFov( float base_fov, float &fov_x, float &fov_y ) const {
 	// FIXME: somehow, this is happening occasionally
 	assert( fov_y > 0 );
 	if ( fov_y <= 0 ) {
-		Printf( sys->FPU_GetState() );
+		// Printf( sys->FPU_GetState() );
 		Error( "idGameLocal::CalcFov: bad result" );
 	}
 
@@ -2938,7 +2932,7 @@ void idGameLocal::CalcFov( float base_fov, float &fov_x, float &fov_y ) const {
 	// FIXME: somehow, this is happening occasionally
 	assert( ( fov_x > 0 ) && ( fov_y > 0 ) );
 	if ( ( fov_y <= 0 ) || ( fov_x <= 0 ) ) {
-		Printf( sys->FPU_GetState() );
+		// Printf( sys->FPU_GetState() ); // its empty on linux, no need
 		Error( "idGameLocal::CalcFov: bad result" );
 	}
 }

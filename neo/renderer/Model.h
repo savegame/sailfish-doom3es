@@ -306,6 +306,26 @@ public:
 	// Writing to and reading from a demo file.
 	virtual void				ReadFromDemoFile( class idDemoFile *f ) = 0;
 	virtual void				WriteToDemoFile( class idDemoFile *f ) = 0;
+#ifdef _RAVEN
+// RAVEN BEGIN
+// bdube: surface flag manipulation
+	virtual int					GetSurfaceMask ( const char* surface ) const = 0;
+
+// RAVEN BEGIN
+// dluetscher: added surface mask parameter
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask/* = ~SURF_COLLISION */ ) = 0;
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+	// HUMANHEAD pdm: Game access to liquid models
+	virtual void				IntersectBounds( const idBounds &bounds, float displacement ) = 0;
+	// HUMANHEAD END
+
+#if _HH_RENDERDEMO_HACKS //HUMANHEAD rww
+	virtual bool					IsGameUpdatedModel(void) = 0;
+	virtual void					SetGameUpdatedModel(bool gum) = 0;
+#endif //HUMANHEAD END
+#endif
 };
 
 #endif /* !__MODEL_H__ */

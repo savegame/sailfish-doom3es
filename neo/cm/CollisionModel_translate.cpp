@@ -309,6 +309,10 @@ void idCollisionModelManagerLocal::TranslateTrmEdgeThroughPolygon( cm_traceWork_
 			}
 			tw->trace.c.contents = poly->contents;
 			tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+			if(poly->material)
+				tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 			tw->trace.c.type = CONTACT_EDGE;
 			tw->trace.c.modelFeature = edgeNum;
 			tw->trace.c.trmFeature = trmEdge - tw->edges;
@@ -319,6 +323,12 @@ void idCollisionModelManagerLocal::TranslateTrmEdgeThroughPolygon( cm_traceWork_
 			dist = normal * trmEdge->start;
 			d1 = normal * start - dist;
 			d2 = normal * end - dist;
+#ifdef _HUMANHEAD
+			if (d1 == d2) { //HUMANHEAD rww - CUFPF
+				f1 = 0.0f;
+			}
+			else
+#endif
 			f1 = d1 / ( d1 - d2 );
 			//assert( f1 >= 0.0f && f1 <= 1.0f );
 			tw->trace.c.point = start + f1 * ( end - start );
@@ -419,6 +429,10 @@ void idCollisionModelManagerLocal::TranslateTrmVertexThroughPolygon( cm_traceWor
 		tw->trace.c.dist = poly->plane.Dist();
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_TRMVERTEX;
 		tw->trace.c.modelFeature = *reinterpret_cast<int *>(&poly);
 		tw->trace.c.trmFeature = v - tw->vertices;
@@ -472,6 +486,10 @@ void idCollisionModelManagerLocal::TranslatePointThroughPolygon( cm_traceWork_t 
 		tw->trace.c.dist = poly->plane.Dist();
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_TRMVERTEX;
 		tw->trace.c.modelFeature = *reinterpret_cast<int *>(&poly);
 		tw->trace.c.trmFeature = v - tw->vertices;
@@ -516,6 +534,10 @@ void idCollisionModelManagerLocal::TranslateVertexThroughTrmPolygon( cm_traceWor
 		tw->trace.c.dist = -trmpoly->plane.Dist();
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_MODELVERTEX;
 		tw->trace.c.modelFeature = v - tw->model->vertices;
 		tw->trace.c.trmFeature = trmpoly - tw->polys;
@@ -780,6 +802,12 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 
 	memset( results, 0, sizeof( *results ) );
 
+#ifdef _RAVEN
+	if (!model) {
+		common->Printf("idCollisionModelManagerLocal::Translation: invalid model\n");
+		return;
+	}
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model > idCollisionModelManagerLocal::maxModels ) {
 		common->Printf("idCollisionModelManagerLocal::Translation: invalid model handle\n");
 		return;
@@ -788,6 +816,7 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 		common->Printf("idCollisionModelManagerLocal::Translation: invalid model\n");
 		return;
 	}
+#endif
 
 	// if case special position test
 	if ( start[0] == end[0] && start[1] == end[1] && start[2] == end[2] ) {
@@ -800,6 +829,16 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 	tw.trace.fraction = 1.0f;
 	tw.trace.c.contents = 0;
 	tw.trace.c.type = CONTACT_NONE;
+#ifdef _RAVEN // quake4 trace
+	tw.trace.c.id = 0; // jmarshall: fix so we don't get garbage values.
+// jmarshall - quake 4
+	tw.trace.c.materialType = 0;
+// jmarshall end
+	tw.trace.c.material = NULL; //kc
+#endif
+#ifdef _HUMANHEAD
+	tw.trace.c.id = 0;		// HUMANHEAD pdm: initialize so we don't get bogus values back
+#endif
 	tw.contents = contentMask;
 	tw.isConvex = true;
 	tw.rotation = false;
@@ -809,7 +848,11 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 	tw.contacts = idCollisionModelManagerLocal::contacts;
 	tw.maxContacts = idCollisionModelManagerLocal::maxContacts;
 	tw.numContacts = 0;
+#ifdef _RAVEN
+	tw.model = static_cast<cm_model_t *>(model);
+#else
 	tw.model = idCollisionModelManagerLocal::models[model];
+#endif
 	tw.start = start - modelOrigin;
 	tw.end = end - modelOrigin;
 	tw.dir = end - start;
@@ -872,6 +915,20 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 			results->c.point += modelOrigin;
 			results->c.dist += modelOrigin * results->c.normal;
 		}
+
+#ifdef _RAVEN // quake4 trace
+// jmarshall - quake 4
+		if (results->c.material)
+		{
+			results->c.materialType = results->c.material->GetMaterialType();
+		}
+		else
+		{
+			results->c.materialType = NULL;
+		}
+// jmarshall end
+#endif
+
 		idCollisionModelManagerLocal::numContacts = tw.numContacts;
 		return;
 	}
@@ -887,8 +944,16 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 		if ( session->rw ) {
 			session->rw->DebugArrow( colorRed, start, end, 1 );
 		}
+#ifdef _RAVEN // quake4 trace
+// jmarshall - quaake 4
+		results->c.materialType = NULL;
+// jmarshall end
+#endif
 		common->Printf( "idCollisionModelManagerLocal::Translation: huge translation from (%.2f %.2f %.2f) to (%.2f %.2f %.2f)\n",
 				start.x, start.y, start.z, end.x, end.y, end.z);
+#ifdef _HUMANHEAD
+		common->Printf( " of entity: %s\n", tw.model->name.c_str() );	// HUMANHEAD
+#endif
 		return;
 	}
 
@@ -1081,6 +1146,19 @@ void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &
 			results->c.dist += modelOrigin * results->c.normal;
 		}
 	}
+
+#ifdef _RAVEN // quake4 trace
+// jmarshall - quake 4
+	if (results->c.material)
+	{
+		results->c.materialType = results->c.material->GetMaterialType();
+	}
+	else
+	{
+		results->c.materialType = NULL;
+	}
+// jmarshall end
+#endif
 
 #ifdef _DEBUG
 	// test for collisions

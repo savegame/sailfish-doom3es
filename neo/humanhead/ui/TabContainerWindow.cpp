@@ -4,6 +4,7 @@
 #include "../../ui/DeviceContext.h"
 #include "../../ui/Window.h"
 #include "../../ui/UserInterfaceLocal.h"
+#include "../../framework/KeyInput.h"
 #include "TabContainerWindow.h"
 #include "TabWindow.h"
 

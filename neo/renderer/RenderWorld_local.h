@@ -138,6 +138,41 @@ public:
 	virtual void			DrawText( const char *text, const idVec3 &origin, float scale, const idVec4 &color, const idMat3 &viewAxis, const int align = 1, const int lifetime = 0, bool depthTest = false );
 
 	//-----------------------
+#ifdef _RAVEN
+	virtual void			RenderScene( const renderView_t *renderView, int renderFlags/* = RF_NORMAL */) {
+		(void)renderFlags;
+		RenderScene(renderView);
+	}
+	virtual bool			HasSkybox(int areaNum);
+
+	virtual void			DebugClear(int time) {
+		DebugClearLines(time);
+		DebugClearPolygons(time);
+	};
+
+// jscott: want to be able to specify depth test
+	virtual void			DebugBounds(const idVec4& color, const idBounds& bounds, const idVec3& org, const int lifetime, bool depthTest) {
+		(void)depthTest;
+		DebugBox(color, idBox(bounds) + org, lifetime);
+	}
+
+	virtual void			DebugFOV(const idVec4& color, const idVec3& origin, const idVec3& dir, float farDot, float farDist, float nearDot, float nearDist, float alpha, int lifetime) { (void)color; (void)origin; (void)dir; (void)farDot; (void)farDist; (void)nearDot; (void)nearDist; (void)alpha; (void)lifetime; }
+
+	virtual void			FindVisibleAreas( idVec3 origin, int areaNum, bool *visibleAreas );
+	void					FindVisibleAreas_r(const idVec3 &origin, int areaNum, const struct portalStack_s *ps, bool *visibleAreas);
+
+	// jscott: handling of effects
+	virtual qhandle_t		AddEffectDef(const renderEffect_t* reffect, int time);
+	virtual bool			UpdateEffectDef(qhandle_t effectHandle, const renderEffect_t* reffect, int time);
+	virtual void			StopEffectDef(qhandle_t effectHandle);
+	virtual const class rvRenderEffectLocal* GetEffectDef(qhandle_t effectHandle) const;
+	virtual void			FreeEffectDef(qhandle_t effectHandle);
+	virtual bool			EffectDefHasSound(const renderEffect_s* reffect);
+
+// jmarshall: BSE
+	idList<rvRenderEffectLocal*>	effectsDef;
+// jmarshll end
+#endif
 
 	idStr					mapName;				// ie: maps/tim_dm2.proc, written to demoFile
 	ID_TIME_T					mapTimeStamp;			// for fast reloads of the same level
@@ -262,6 +297,19 @@ public:
 	//-------------------------------
 	// tr_light.c
 	void					CreateLightDefInteractions( idRenderLightLocal *ldef );
+#ifdef _HUMANHEAD
+#if _HH_RENDERDEMO_HACKS
+		virtual void			DemoSmokeEvent(const idDeclParticle *smoke, const int systemTimeOffset, const float diversity, const idVec3 &origin, const idMat3 &axis) { (void)smoke; (void)systemTimeOffset; (void) diversity; (void)origin; (void)axis; }
+		virtual guiPoint_t		GuiTrace( qhandle_t entityHandle, const idVec3 start, const idVec3 end, int interactiveMask ) const {
+			(void)interactiveMask;
+			return GuiTrace(entityHandle, start, end);
+		}
+#endif
+
+#if DEATHWALK_AUTOLOAD
+		int numAppendPortalAreas;
+#endif
+#endif
 };
 
 #endif /* !__RENDERWORLDLOCAL_H__ */

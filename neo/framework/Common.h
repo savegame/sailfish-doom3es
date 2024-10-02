@@ -143,8 +143,20 @@ struct MemInfo_t {
 	int				imageAssetsTotal;
 	int				modelAssetsTotal;
 	int				soundAssetsTotal;
-};
+#ifdef _RAVEN
+	int				animsAssetsCount;
+	int				animsAssetsTotal;
 
+	int				aasAssetsCount;
+	int				aasAssetsTotal;
+#endif
+#ifdef _HUMANHEAD
+	int				animAssetsTotal;	// HUMANHEAD pdm
+#endif
+};
+#ifdef _RAVEN
+typedef MemInfo_t MemInfo;
+#endif
 class idLangDict;
 class idInterpreter;
 class idProgram;
@@ -250,6 +262,16 @@ public:
 								// Directly sample a keystate.
 	virtual int					KeyState( int key ) = 0;
 
+#ifdef _HUMANHEAD
+	// HUMANHEAD pdm
+	virtual void				FixupKeyTranslations(const char *src, char *dst, int lengthAllocated) = 0;
+	virtual void				MaterialKeyForBinding(const char *binding, char *keyMaterial, char *key, bool &isBound) = 0;
+
+	//HUMANHEAD rww
+	virtual void				SetGameSensitivityFactor(float factor) = 0; //allows game logic to set a sensitivity factor for input
+	//HUMANHEAD END
+#endif
+
 	/* Some Mods (like Ruiner and DarkMod when it still was a mod) used "SourceHook"
 	 * to override Doom3 Methods to call their own code before the original method
 	 * was executed.. this is super ugly and probably not super portable either.
@@ -314,8 +336,20 @@ public:
 	// *out_fnptr will be the function (you'll have to cast it probably)
 	// *out_userArg will be an argument you have to pass to the function, if appropriate (else NULL)
 	virtual bool				GetAdditionalFunction(FunctionType ft, FunctionPointer* out_fnptr, void** out_userArg) = 0;
+
 };
 
 extern idCommon *		common;
+
+#ifdef _HUMANHEAD
+// Profiling not enabled, compile it out
+#define PROFILE_START(n, m)
+#define PROFILE_STOP(n, m)
+#define PROFILE_SCOPE(n, m)
+
+#define PROFILE_START_EXPENSIVE(n, m)
+#define PROFILE_STOP_EXPENSIVE(n, m)
+#define PROFILE_SCOPE_EXPENSIVE(n, m)
+#endif
 
 #endif /* !__COMMON_H__ */

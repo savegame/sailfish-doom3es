@@ -323,12 +323,22 @@ bool idUserInterfaceLocal::InitFromFile( const char *qpath, bool rebuild, bool c
 		return false;
 	}
 
+#ifdef _RAVENxxx //k: GUI initilized event, not here
+	desktop->RunScript(idWindow::ON_INIT);
+#endif
+
 	interactive = desktop->Interactive();
+#ifdef _RAVEN //k: maybe not need
+	SetStateBool("noninteractive", !interactive);
+#endif
 
 	if ( uiManagerLocal.guis.Find( this ) == NULL ) {
 		uiManagerLocal.guis.Append( this );
 	}
 
+#ifdef _HUMANHEAD
+	translateFont = -1;
+#endif
 	loading = false;
 
 	return true;
@@ -419,9 +429,20 @@ void idUserInterfaceLocal::Redraw( int _time ) {
 	}
 	if ( !loading && desktop ) {
 		time = _time;
+#ifdef _HUMANHEAD
+		if(translateFont >= 0)
+			desktop->Translate(translateFont);
+#endif
 		uiManagerLocal.dc.PushClipRect( uiManagerLocal.screenRect );
 		desktop->Redraw( 0, 0 );
 		uiManagerLocal.dc.PopClipRect();
+#ifdef _HUMANHEAD
+		if(translateFont >= 0)
+		{
+			translateFont = -1;
+			desktop->Translate();
+		}
+#endif
 	}
 }
 
@@ -474,6 +495,10 @@ float idUserInterfaceLocal::GetStateFloat( const char *varName, const char* defa
 }
 
 void idUserInterfaceLocal::StateChanged( int _time, bool redraw ) {
+#ifdef _RAVEN //k: run onInit gui script
+	const bool IsInit = time == 0;
+#endif
+
 	time = _time;
 	if (desktop) {
 		// DG: little hack: allow game DLLs to do
@@ -490,6 +515,13 @@ void idUserInterfaceLocal::StateChanged( int _time, bool redraw ) {
 		// DG end
 
 		desktop->StateChanged( redraw );
+#ifdef _RAVEN //k: GUI initilized event here now
+		if(IsInit)
+		{
+			//LOGI("GUI Initing -> %s::%s", GetStateString("name"), (const char *)desktop->GetName())
+			desktop->RunScript(idWindow::ON_INIT);
+		}
+#endif
 	}
 	if ( state.GetBool( "noninteractive" ) ) {
 		interactive = false;

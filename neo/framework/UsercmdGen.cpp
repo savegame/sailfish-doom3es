@@ -164,6 +164,10 @@ typedef enum {
 	UB_IMPULSE62,
 	UB_IMPULSE63,
 
+#ifdef _HUMANHEAD
+	UB_ATTACK_ALT,
+#endif
+
 	UB_MAX_BUTTONS
 } usercmdButton_t;
 
@@ -264,6 +268,10 @@ userCmdString_t	userCmdStrings[] = {
 	{ "_impulse61",		UB_IMPULSE61 },
 	{ "_impulse62",		UB_IMPULSE62 },
 	{ "_impulse63",		UB_IMPULSE63 },
+
+#ifdef _HUMANHEAD
+	{ "_attackalt",		UB_ATTACK_ALT },
+#endif
 
 	{ NULL,				UB_NONE },
 };
@@ -410,7 +418,11 @@ idCVar idUsercmdGenLocal::in_yawSpeed( "in_yawspeed", "140", CVAR_SYSTEM | CVAR_
 idCVar idUsercmdGenLocal::in_pitchSpeed( "in_pitchspeed", "140", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_FLOAT, "pitch change speed when holding down look _lookUp or _lookDown button" );
 idCVar idUsercmdGenLocal::in_angleSpeedKey( "in_anglespeedkey", "1.5", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_FLOAT, "angle change scale when holding down _speed button" );
 idCVar idUsercmdGenLocal::in_freeLook( "in_freeLook", "1", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "look around with mouse (reverse _mlook button)" );
+#ifdef _RAVEN //karin: in_alwaysRun default on, and not only in MP game.
+idCVar idUsercmdGenLocal::in_alwaysRun("in_alwaysRun", "1", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "always run (reverse _speed button)");
+#else
 idCVar idUsercmdGenLocal::in_alwaysRun( "in_alwaysRun", "0", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "always run (reverse _speed button) - only in MP" );
+#endif
 idCVar idUsercmdGenLocal::in_toggleRun( "in_toggleRun", "0", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "pressing _speed button toggles run on/off - only in MP" );
 idCVar idUsercmdGenLocal::in_toggleCrouch( "in_toggleCrouch", "0", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "pressing _movedown button toggles player crouching/standing" );
 idCVar idUsercmdGenLocal::in_toggleZoom( "in_toggleZoom", "0", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "pressing _zoom button toggles zoom on/off" );
@@ -534,7 +546,12 @@ Moves the local angle positions
 void idUsercmdGenLocal::AdjustAngles( void ) {
 	float	speed;
 
-	if ( toggled_run.on ^ ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ) {
+#ifdef _RAVEN //karin: in_alwaysRun default on, and not only in MP game.
+	if (toggled_run.on ^(in_alwaysRun.GetBool())) 
+#else
+	if (toggled_run.on ^(in_alwaysRun.GetBool() && idAsyncNetwork::IsActive())) 
+#endif
+	{
 		speed = idMath::M_MS2SEC * USERCMD_MSEC * in_angleSpeedKey.GetFloat();
 	} else {
 		speed = idMath::M_MS2SEC * USERCMD_MSEC;
@@ -683,7 +700,12 @@ idUsercmdGenLocal::JoystickMove
 void idUsercmdGenLocal::JoystickMove( void ) {
 	float	anglespeed;
 
-	if ( toggled_run.on ^ ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ) {
+#ifdef _RAVEN //karin: in_alwaysRun default on, and not only in MP game.
+	if (toggled_run.on ^(in_alwaysRun.GetBool())) 
+#else
+	if (toggled_run.on ^(in_alwaysRun.GetBool() && idAsyncNetwork::IsActive())) 
+#endif
+	{
 		anglespeed = idMath::M_MS2SEC * USERCMD_MSEC * in_angleSpeedKey.GetFloat();
 	} else {
 		anglespeed = idMath::M_MS2SEC * USERCMD_MSEC;
@@ -725,7 +747,12 @@ void idUsercmdGenLocal::CmdButtons( void ) {
 	}
 
 	// check the run button
-	if ( toggled_run.on ^ ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ) {
+#ifdef _RAVEN //karin: in_alwaysRun default on, and not only in MP game.
+	if (toggled_run.on ^(in_alwaysRun.GetBool())) 
+#else
+	if (toggled_run.on ^(in_alwaysRun.GetBool() && idAsyncNetwork::IsActive())) 
+#endif
+	{
 		cmd.buttons |= BUTTON_RUN;
 	}
 
@@ -744,6 +771,13 @@ void idUsercmdGenLocal::CmdButtons( void ) {
 	if ( ButtonState( UB_MLOOK ) ^ in_freeLook.GetInteger() ) {
 		cmd.buttons |= BUTTON_MLOOK;
 	}
+
+#ifdef _HUMANHEAD
+	// check the alt attack button
+	if (ButtonState(UB_ATTACK_ALT)) {
+		cmd.buttons |= BUTTON_ATTACK_ALT;
+	}
+#endif
 }
 
 /*
@@ -757,7 +791,11 @@ void idUsercmdGenLocal::InitCurrent( void ) {
 	memset( &cmd, 0, sizeof( cmd ) );
 	cmd.flags = flags;
 	cmd.impulse = impulse;
+#ifdef _RAVEN //karin: in_alwaysRun default on, and not only in MP game.
+	cmd.buttons |= (in_alwaysRun.GetBool()) ? BUTTON_RUN : 0;
+#else
 	cmd.buttons |= ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ? BUTTON_RUN : 0;
+#endif
 	cmd.buttons |= in_freeLook.GetBool() ? BUTTON_MLOOK : 0;
 }
 
@@ -1100,9 +1138,10 @@ void idUsercmdGenLocal::ImGui( void ) {
 				default: 
 					action = UB_IMPULSE0 + key;
 				}
+#ifndef _HUMANHEAD
 				if (action > UB_IMPULSE40)
 					action = UB_IMPULSE40;
-
+#endif
 				if ( state == 1 ) {
 					buttonState[ action ]++;
 
@@ -1149,6 +1188,7 @@ void idUsercmdGenLocal::UsercmdInterrupt( void ) {
 
 	// process the system joystick events
 	Joystick();
+
 #ifdef IMGUI_TOUCHSCREEN
 	// process ImGui system events
 	ImGui();

@@ -486,7 +486,7 @@ int main(int argc, char **argv) {
 	}
 #else
 	if ( argc > 1 ) {
-		common->Init( argc-1, &argv[1] );
+		common->Init( argc-1, &((const char**)argv)[1] );
 	} else {
 		common->Init( 0, NULL );
 	}

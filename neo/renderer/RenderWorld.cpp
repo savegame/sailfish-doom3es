@@ -34,6 +34,9 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "renderer/tr_local.h"
 
+#if defined(_RAVEN) || defined(_HUMANHEAD) //k: dynamic model gui trace
+#include "Model_local.h"
+#endif
 /*
 ===================
 R_ListRenderLightDefs_f
@@ -145,6 +148,11 @@ idRenderWorldLocal::idRenderWorldLocal() {
 	interactionTable = 0;
 	interactionTableWidth = 0;
 	interactionTableHeight = 0;
+#ifdef _HUMANHEAD
+#if DEATHWALK_AUTOLOAD
+	numAppendPortalAreas = 0;
+#endif
+#endif
 }
 
 /*
@@ -594,7 +602,12 @@ void idRenderWorldLocal::ProjectDecal( qhandle_t entityHandle, const idFixedWind
 	if ( def->decals == NULL ) {
 		def->decals = idRenderModelDecal::Alloc();
 	}
-	def->decals->CreateDecal( model, localInfo );
+
+	def->decals->CreateDecal(model, localInfo
+#ifdef _RAVEN
+			, def->parms.suppressSurfaceMask
+#endif
+			);
 }
 
 /*
@@ -1015,15 +1028,42 @@ guiPoint_t	idRenderWorldLocal::GuiTrace( qhandle_t entityHandle, const idVec3 st
 	}
 
 	model = def->parms.hModel;
+
+#if defined(_RAVEN) || defined(_HUMANHEAD) //k: for GUI view of dynamic model. e.g. strogg health station
+	if (!def->parms.hModel || def->parms.hModel->IsDynamicModel() == DM_CONTINUOUS) {
+		return pt;
+	}
+	if (def->parms.callback && def->parms.hModel->IsDynamicModel() == DM_STATIC) {
+		return pt;
+	}
+	//k: md5 dynamic model
+	if (def->parms.hModel->IsDynamicModel() == DM_CACHED) {
+		idRenderModelMD5 *md5_model = dynamic_cast<idRenderModelMD5*>(model);
+		if(!md5_model)
+			return pt;
+		model = md5_model->DynamicModelSnapshot();
+		if(!model)
+			return pt;
+	}
+#else
 	if ( def->parms.callback || !def->parms.hModel || def->parms.hModel->IsDynamicModel() != DM_STATIC ) {
 		return pt;
 	}
+#endif
 
 	// transform the points into local space
 	R_GlobalPointToLocal( def->modelMatrix, start, localStart );
 	R_GlobalPointToLocal( def->modelMatrix, end, localEnd );
 
+
+	float best = 99999.0;
+	const modelSurface_t *bestSurf = NULL;
+
 	for ( j = 0 ; j < model->NumSurfaces() ; j++ ) {
+#ifdef _RAVEN //k: for ShowSurface/HideSurface, shader mask is not 0 will skip GUI trace testing.
+		if(SUPPRESS_SURFACE_MASK_CHECK(def->parms.suppressSurfaceMask, j))
+			continue;
+#endif
 		const modelSurface_t *surf = model->Surface( j );
 
 		tri = surf->geometry;
@@ -1056,6 +1096,23 @@ guiPoint_t	idRenderWorldLocal::GuiTrace( qhandle_t entityHandle, const idVec3 st
 			pt.y = ( cursor * axis[1] ) / ( axisLen[1] * axisLen[1] );
 			pt.guiId = shader->GetEntityGui();
 
+#ifdef _RAVEN //karin: player focus GUI with brackets
+			idUserInterface	*gui = NULL;
+			int guiNum = shader->GetEntityGui() - 1;
+			if (guiNum >= 0 && guiNum < MAX_RENDERENTITY_GUI)
+				gui = def->parms.gui[ guiNum ];
+			if (!gui)
+				gui = shader->GlobalGui();
+			if (gui)
+			{
+#if 0 //karin: now calc in tr_guisurf::R_RenderGuiSurf
+				extern void R_CalcGuiRangeInWindow(idUserInterface *gui, const srfTriangles_t *tri, const float defModelMatrix[16]);
+				R_CalcGuiRangeInWindow(gui, tri, def->modelMatrix);
+#else //karin: now only mark `harm_2d_calc` to true
+				gui->SetStateBool("harm_2d_calc", true);
+#endif
+			}
+#endif
 			return pt;
 		}
 	}
@@ -1079,6 +1136,10 @@ bool idRenderWorldLocal::ModelTrace( modelTrace_t &trace, qhandle_t entityHandle
 	const idMaterial *shader;
 
 	trace.fraction = 1.0f;
+#ifdef _RAVEN // quake4 trace
+	trace.materialType = 0;
+	trace.material = NULL;
+#endif
 
 	if ( entityHandle < 0 || entityHandle >= entityDefs.Num() ) {
 //		common->Error( "idRenderWorld::ModelTrace: index = %i", entityHandle );
@@ -1106,6 +1167,10 @@ bool idRenderWorldLocal::ModelTrace( modelTrace_t &trace, qhandle_t entityHandle
 	// (FIXME, should probably have a parm to control this)
 	collisionSurface = false;
 	for ( i = 0; i < model->NumBaseSurfaces(); i++ ) {
+#ifdef _RAVEN //k: for ShowSurface/HideSurface, shader mask is not 0 will skip model trace testing.
+		if(SUPPRESS_SURFACE_MASK_CHECK(refEnt->suppressSurfaceMask, i))
+			continue;
+#endif
 		surf = model->Surface( i );
 
 		shader = R_RemapShaderBySkin( surf->shader, def->parms.customSkin, def->parms.customShader );
@@ -1118,6 +1183,10 @@ bool idRenderWorldLocal::ModelTrace( modelTrace_t &trace, qhandle_t entityHandle
 
 	// only use baseSurfaces, not any overlays
 	for ( i = 0; i < model->NumBaseSurfaces(); i++ ) {
+#ifdef _RAVEN //k: for ShowSurface/HideSurface, shader mask is not 0 will skip model trace testing.
+		if(SUPPRESS_SURFACE_MASK_CHECK(refEnt->suppressSurfaceMask, i))
+			continue;
+#endif
 		surf = model->Surface( i );
 
 		shader = R_RemapShaderBySkin( surf->shader, def->parms.customSkin, def->parms.customShader );
@@ -1146,6 +1215,9 @@ bool idRenderWorldLocal::ModelTrace( modelTrace_t &trace, qhandle_t entityHandle
 			trace.normal = localTrace.normal * refEnt->axis;
 			trace.material = shader;
 			trace.entity = &def->parms;
+#ifdef _RAVEN // quake4 trace
+			trace.materialType = trace.material->GetMaterialType();
+#endif
 			trace.jointNumber = refEnt->hModel->NearestJoint( i, localTrace.indexes[0], localTrace.indexes[1], localTrace.indexes[2] );
 		}
 	}
@@ -1250,6 +1322,10 @@ bool idRenderWorldLocal::Trace( modelTrace_t &trace, const idVec3 &start, const 
 
 			// check all model surfaces
 			for ( j = 0; j < model->NumSurfaces(); j++ ) {
+#ifdef _RAVEN //k: for ShowSurface/HideSurface, shader mask is not 0 will skip trace testing.
+				if(SUPPRESS_SURFACE_MASK_CHECK(def->parms.suppressSurfaceMask, j))
+					continue;
+#endif
 				const modelSurface_t *surf = model->Surface( j );
 
 				shader = R_RemapShaderBySkin( surf->shader, def->parms.customSkin, def->parms.customShader );
@@ -1301,6 +1377,9 @@ bool idRenderWorldLocal::Trace( modelTrace_t &trace, const idVec3 &start, const 
 					R_LocalPointToGlobal( modelMatrix, localTrace.point, trace.point );
 					trace.normal = localTrace.normal * def->parms.axis;
 					trace.material = shader;
+#ifdef _RAVEN
+					trace.materialType = trace.material->GetMaterialType();
+#endif
 					trace.entity = &def->parms;
 					trace.jointNumber = model->NearestJoint( j, localTrace.indexes[0], localTrace.indexes[1], localTrace.indexes[2] );
 
@@ -2158,3 +2237,136 @@ const idMaterial *R_RemapShaderBySkin( const idMaterial *shader, const idDeclSki
 
 	return skin->RemapShaderBySkin( shader );
 }
+
+#ifdef _RAVEN // particle
+
+#ifdef _RAVEN_FX
+static void rvRenderEffectLocal_Init(rvRenderEffectLocal *a)
+{
+	a->gameTime = 0;
+	a->serviceTime = 0;
+	a->newEffect = false;
+	a->expired = false;
+	a->effect = NULL;
+	a->world = NULL;
+	a->lastModifiedFrameNum = 0;
+	a->archived = false;
+	a->viewCount = 0;
+	a->visibleCount = 0;
+	a->remove = false;
+	a->updateFramenum = 0;
+	a->index = -1;
+	a->dynamicModel = NULL;
+	a->dynamicModelFrameCount = 0;
+	memset(&a->parms, 0, sizeof(a->parms));
+	a->referenceBounds.Clear();
+	esMatrixLoadIdentity((ESMatrix *)a->modelMatrix);
+}
+
+#define ASSERT_EFFECT_HANDLE(effectHandle) \
+	if (effectHandle < 0 || effectHandle > LUDICROUS_INDEX) { \
+		common->Error("idRenderWorld::%s: index = %i in [0, %d)", __func__, effectHandle, LUDICROUS_INDEX); \
+	}
+#include "../raven/bse/BSE.h"
+#endif
+
+/*
+===================
+AddEffectDef
+===================
+*/
+qhandle_t idRenderWorldLocal::AddEffectDef(const renderEffect_t* reffect, int time) { 
+#ifdef _RAVEN_FX
+	BSE_VERBOSE("AddEffectDef %p %d %f %f\n", reffect, time, reffect->startTime, tr.frameShaderTime);
+	int effectHandle = effectsDef.FindNull();
+	if (effectHandle == -1) {
+		effectHandle = effectsDef.Append(NULL);
+	}
+
+	if (effectsDef[effectHandle] == NULL) {
+		effectsDef[effectHandle] = new rvRenderEffectLocal();
+	}
+
+	rvRenderEffectLocal *effect = effectsDef[effectHandle];
+	rvRenderEffectLocal_Init(effect);
+	effect->parms = *reffect;
+	effect->gameTime = time;
+	effect->world = this;
+	effect->index = effectHandle;
+
+	float sec = MS2SEC(time);
+	if(!bse->PlayEffect(effect, reffect->startTime)) // last renderView->time
+	{
+		delete effectsDef[effectHandle];
+		effectsDef[effectHandle] = NULL;
+		return -1;
+	}
+	bse->ServiceEffect(effect, sec);
+
+	return effectHandle;
+#else
+	return -1; // if < 0, will remove rvClientEffect
+#endif
+}
+
+/*
+===================
+UpdateEffectDef
+===================
+*/
+bool idRenderWorldLocal::UpdateEffectDef(qhandle_t effectHandle, const renderEffect_t* reffect, int time) {
+	// return true will remove effect
+#ifdef _RAVEN_FX
+	BSE_VERBOSE("UpdateEffectDef %d %p %d %f\n", effectHandle, reffect, time, tr.frameShaderTime);
+	ASSERT_EFFECT_HANDLE(effectHandle);
+
+	effectsDef[effectHandle]->parms = *reffect;
+	effectsDef[effectHandle]->gameTime = time;
+	float sec = MS2SEC(time);
+	return bse->ServiceEffect(effectsDef[effectHandle], sec);
+#else
+	return true;
+#endif
+}
+
+void idRenderWorldLocal::FreeEffectDef(qhandle_t effectHandle) {
+#ifdef _RAVEN_FX
+	BSE_VERBOSE("FreeEffectDef %d\n", effectHandle);
+	ASSERT_EFFECT_HANDLE(effectHandle);
+
+	bse->FreeEffect(effectsDef[effectHandle]);
+
+	if (effectsDef[effectHandle] != NULL)
+		delete effectsDef[effectHandle];
+	
+	effectsDef[effectHandle] = NULL;
+#endif
+}
+
+void idRenderWorldLocal::StopEffectDef(qhandle_t effectHandle) { 
+#ifdef _RAVEN_FX
+	BSE_VERBOSE("StopEffectDef %d\n", effectHandle);
+	ASSERT_EFFECT_HANDLE(effectHandle);
+
+	if (effectsDef[effectHandle] == NULL)
+		return;
+
+	bse->StopEffect(effectsDef[effectHandle]);
+#endif
+}
+
+const class rvRenderEffectLocal* idRenderWorldLocal::GetEffectDef(qhandle_t effectHandle) const { 
+#ifdef _RAVEN_FX
+	ASSERT_EFFECT_HANDLE(effectHandle);
+
+	return effectsDef[effectHandle]; 
+#else
+	return NULL;
+#endif
+}
+
+bool idRenderWorldLocal::EffectDefHasSound(const renderEffect_s* reffect) { 
+	return bse->CheckDefForSound(reffect); 
+}
+
+#endif

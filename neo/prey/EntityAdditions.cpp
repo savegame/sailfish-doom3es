@@ -4,6 +4,8 @@
 
 #include "Game_local.h"
 
+#include "../humanhead/idlib/math/prey_math.h"
+
 #include "Prey/ai_speech.h"
 #include "Prey/ai_reaction.h"
 

@@ -12,6 +12,8 @@
 ===============================================================================
 */
 
+#include "../gamesys/Class.h"
+
 #define contactEntity_t		idEntityPtr<idEntity>
 
 class idPhysics_Base : public idPhysics {

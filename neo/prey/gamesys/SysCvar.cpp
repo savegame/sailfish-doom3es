@@ -5,7 +5,7 @@
 #pragma hdrstop
 
 #include "../Game_local.h"
-//k: #include "../../framework/BuildVersion.h" // HUMANHEAD mdl
+#include "../../framework/BuildVersion.h" // HUMANHEAD mdl
 
 #if defined( _DEBUG )
 	#define	BUILD_DEBUG	"-debug"

@@ -56,6 +56,7 @@ All fragments will have the same sequence numbers.
 idCVar net_channelShowPackets( "net_channelShowPackets", "0", CVAR_SYSTEM | CVAR_BOOL, "show all packets" );
 idCVar net_channelShowDrop( "net_channelShowDrop", "0", CVAR_SYSTEM | CVAR_BOOL, "show dropped packets" );
 
+#if !defined(_RAVEN) && !defined(_HUMANHEAD) // quake4/prey in idlib/BitMsg
 /*
 ===============
 idMsgQueue::idMsgQueue
@@ -239,7 +240,7 @@ void idMsgQueue::ReadData( byte *data, const int size ) {
 		}
 	}
 }
-
+#endif
 
 /*
 ===============
@@ -382,7 +383,12 @@ bool idMsgChannel::ReadMessageData( idBitMsg &out, const idBitMsg &msg ) {
 
 	// remove acknowledged reliable messages
 	while( reliableSend.GetFirst() <= reliableAcknowledge ) {
-		if ( !reliableSend.Get( NULL, reliableMessageSize ) ) {
+#ifdef _RAVEN
+		if (!reliableSend.Get(0, 0, reliableMessageSize, false))
+#else
+		if (!reliableSend.Get(NULL, reliableMessageSize))
+#endif
+		{
 			break;
 		}
 	}
@@ -396,7 +402,11 @@ bool idMsgChannel::ReadMessageData( idBitMsg &out, const idBitMsg &msg ) {
 		}
 		reliableSequence = out.ReadInt();
 		if ( reliableSequence == reliableReceive.GetLast() + 1 ) {
+#ifdef _RAVEN
+			reliableReceive.Add(out.GetData() + out.GetReadCount(), reliableMessageSize, false);
+#else
 			reliableReceive.Add( out.GetData() + out.GetReadCount(), reliableMessageSize );
+#endif
 		}
 		out.ReadData( NULL, reliableMessageSize );
 		reliableMessageSize = out.ReadShort();
@@ -675,7 +685,13 @@ bool idMsgChannel::SendReliableMessage( const idBitMsg &msg ) {
 	if ( remoteAddress.type == NA_BAD ) {
 		return false;
 	}
+
+#ifdef _RAVEN
+	result = reliableSend.Add(msg.GetData(), msg.GetSize(), false);
+#else
 	result = reliableSend.Add( msg.GetData(), msg.GetSize() );
+#endif
+
 	if ( !result ) {
 		common->Warning( "idMsgChannel::SendReliableMessage: overflowed" );
 		return false;
@@ -692,7 +708,12 @@ bool idMsgChannel::GetReliableMessage( idBitMsg &msg ) {
 	int size;
 	bool result;
 
+#ifdef _RAVEN
+	result = reliableReceive.Get( msg.GetData(), msg.GetSize(), size, false );
+#else
 	result = reliableReceive.Get( msg.GetData(), size );
+#endif
+
 	msg.SetSize( size );
 	msg.BeginReading();
 	return result;

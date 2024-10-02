@@ -48,6 +48,11 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "ui/Window.h"
 
+#ifdef _HUMANHEAD
+#include "humanhead/ui/TabWindow.h"
+#include "humanhead/ui/TabContainerWindow.h"
+#endif
+
 bool idWindow::registerIsTemporary[MAX_EXPRESSION_REGISTERS];		// statics to assist during parsing
 //float idWindow::shaderRegisters[MAX_EXPRESSION_REGISTERS];
 //wexpOp_t idWindow::shaderOps[MAX_EXPRESSION_OPS];
@@ -58,14 +63,75 @@ idCVar idWindow::gui_edit( "gui_edit", "0", CVAR_GUI | CVAR_BOOL, "" );
 extern idCVar r_skipGuiShaders;		// 1 = don't render any gui elements on surfaces
 extern idCVar r_scaleMenusTo43;
 
+#ifdef _RAVEN //k: for main menu gui
+idCVar net_menulanserver("net_menuLANServer", "0", CVAR_SYSTEM | CVAR_ARCHIVE, "menu cvar for config of lan servers");
+idCVar net_serverMenuDedicated("net_serverMenuDedicated", "0", CVAR_SYSTEM | CVAR_ARCHIVE, "");
+idCVar r_forceAmbient("r_forceAmbient", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "Force a single ambient light throughout the level if > 0 (intensity 0..1)");
+idCVar r_useSmp("r_useSMP", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "Turn SMP on and off");
+idCVar s_deviceName("s_deviceName", "", CVAR_SOUND | CVAR_ARCHIVE, "OpenAL device name");
+idCVar s_volume("s_volume", "0.5", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume 0 to 1");
+idCVar s_musicVolume("s_musicVolume", "0.5", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume of music");
+idCVar s_speakerFraction("s_speakerFraction", "0.65", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume adjust, from 0 to 1, applied to every sound not playing on a voice channel");
+idCVar s_voiceVolume("s_voiceVolume", "1.0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume of voice chat");
+
+idCVar s_voiceChatEcho("s_voiceChatEcho", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_BOOL, "voice echo on or off");
+idCVar s_voiceChatSend("s_voiceChatSend", "1", CVAR_SOUND | CVAR_ARCHIVE | CVAR_BOOL, "voice chat send on or off");
+idCVar s_voiceChatReceive("s_voiceChatReceive", "1", CVAR_SOUND | CVAR_ARCHIVE | CVAR_BOOL, "voice receive on or off");
+idCVar s_micInputLevel("s_micInputLevel", "6", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "alerts the mic input level");
+idCVar ui_handicap("ui_handicap", "100", CVAR_GUI | CVAR_ARCHIVE | CVAR_INTEGER, "player damage output handicap");
+#endif
+#ifdef _HUMANHEAD
+idCVar gui_filter_pb("gui_filter_pb", "0", CVAR_GUI | CVAR_ARCHIVE | CVAR_INTEGER, "Punkbuster filter");
+idCVar g_subtitles("g_subtitles", "0", CVAR_GAME | CVAR_ARCHIVE | CVAR_BOOL, "Display subtitles");
+idCVar com_profanity("com_profanity", "1", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_BOOL, "if off, blocks profanity");
+idCVar r_shaderlevel("r_shaderlevel", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "level of shadersto use");
+idCVar r_correctspecular("r_correctspecular", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "per pixel half angle calculation");
+idCVar r_normalizebumpmap("r_normalizebumpmap", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "per pixel renormalization of bumpmaps");
+idCVar r_skipGlowOverlay("r_skipGlowOverlay", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "if true, skip drawing the glow overlay");
+idCVar r_lowParticleDetail("r_lowParticleDetail", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "less detailed particles");
+idCVar r_useFastSkinning("r_useFastSkinning", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "0 = normal, 1 = faster with tangents transformed, 2 = use single weight simple skinning");
+idCVar s_musicvolume_dB("s_musicvolume_dB", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "music volume in dB");
+idCVar s_deviceName("s_deviceName", "", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "OpenAL device name");
+#endif
+
 //  made RegisterVars a member of idWindow
 const idRegEntry idWindow::RegisterVars[] = {
 	{ "forecolor", idRegister::VEC4 },
+#ifdef _RAVEN // quake4 gui var
+    { "forecolor_r", idRegister::FLOAT },
+    { "forecolor_g", idRegister::FLOAT },
+    { "forecolor_b", idRegister::FLOAT },
+    { "forecolor_w", idRegister::FLOAT },
+#endif
 	{ "hovercolor", idRegister::VEC4 },
+#ifdef _RAVEN // quake4 gui var
+    { "hovercolor_r", idRegister::FLOAT },
+    { "hovercolor_g", idRegister::FLOAT },
+    { "hovercolor_b", idRegister::FLOAT },
+    { "hovercolor_w", idRegister::FLOAT },
+#endif
 	{ "backcolor", idRegister::VEC4 },
+#ifdef _RAVEN // quake4 gui var
+    { "backcolor_r", idRegister::FLOAT },
+    { "backcolor_g", idRegister::FLOAT },
+    { "backcolor_b", idRegister::FLOAT },
+    { "backcolor_w", idRegister::FLOAT },
+#endif
 	{ "bordercolor", idRegister::VEC4 },
+#ifdef _RAVEN // quake4 gui var
+    { "bordercolor_r", idRegister::FLOAT },
+    { "bordercolor_g", idRegister::FLOAT },
+    { "bordercolor_b", idRegister::FLOAT },
+    { "bordercolor_w", idRegister::FLOAT },
+#endif
 	{ "rect", idRegister::RECTANGLE },
 	{ "matcolor", idRegister::VEC4 },
+#ifdef _RAVEN // quake4 gui var
+    { "matcolor_r", idRegister::FLOAT },
+    { "matcolor_g", idRegister::FLOAT },
+    { "matcolor_b", idRegister::FLOAT },
+    { "matcolor_w", idRegister::FLOAT },
+#endif
 	{ "scale", idRegister::VEC2 },
 	{ "translate", idRegister::VEC2 },
 	{ "rotate", idRegister::FLOAT },
@@ -86,6 +152,36 @@ const idRegEntry idWindow::RegisterVars[] = {
 	{ "lightColor", idRegister::VEC4 },
 	{ "viewOffset", idRegister::VEC4 },
 	{ "hideCursor", idRegister::BOOL}
+#ifdef _RAVEN // quake4 gui var
+    , { "maxchars", idRegister::INT},
+    { "backgroundHover", idRegister::STRING },
+    { "backgroundFocus", idRegister::STRING },
+    { "backgroundLine", idRegister::STRING },
+    { "itemheight", idRegister::INT },
+	{ "values", idRegister::STRING }, // idChoiceWindow
+	{ "model", idRegister::STRING }, // idRenderWindow
+	{ "skin", idRegister::STRING }, // idRenderWindow
+	{ "model1", idRegister::STRING }, // idRenderWindow
+	{ "skin1", idRegister::STRING }, // idRenderWindow
+	{ "animClass1", idRegister::STRING }, // idRenderWindow
+#endif
+
+#ifdef _HUMANHEAD
+	, { "margins", idRegister::VEC4 },
+	{ "cornerSize", idRegister::VEC2 },
+	{ "edgeSize", idRegister::VEC2 },
+	{ "hoverMatColor", idRegister::VEC4 },
+	{ "focusColor", idRegister::VEC4 },
+	{ "seperatorLines", idRegister::VEC4 },
+	{ "activeColor", idRegister::VEC4 },
+    { "seperatorMargin", idRegister::INT },
+    { "activeTab", idRegister::INT },
+	{ "sepColor", idRegister::VEC4 },
+	{ "hoverBorderColor", idRegister::VEC4 },
+	{ "tabMargins", idRegister::VEC2 },
+	{ "trailOffset", idRegister::FLOAT },
+	{ "splineIn", idRegister::INT },
+#endif
 };
 
 const int idWindow::NumRegisterVars = sizeof(RegisterVars) / sizeof(idRegEntry);
@@ -102,6 +198,34 @@ const char *idWindow::ScriptNames[] = {
 	"onActionRelease",
 	"onEnter",
 	"onEnterRelease"
+#ifdef _RAVEN // quake4 gui event
+// jmarshall - quake 4
+    , "onBackAction",
+    "onTabRelease",
+    "onGainFocus",
+    "onLoseFocus",
+    "onSelChange",
+    "onInit",
+    "onJoyStart",
+    "onJoySelect",
+    "onJoyBack",
+    "onJoyLShoulder",
+    "onJoyRShoulder",
+    "onJoyUp",
+    "onJoyDown",
+    "onJoyLeft",
+    "onJoyRight",
+    "onJoyButton1",
+    "onJoyButton2",
+    "onJoyBackButton"
+// jmarshall end
+#endif
+#ifdef _HUMANHEAD
+		, "onTabActivate",
+		"onStartup",
+		"onMaxChars",
+		"onSliderChange",
+#endif
 };
 
 /*
@@ -154,6 +278,34 @@ void idWindow::CommonInit() {
 	}
 
 	hideCursor = false;
+#ifdef _RAVEN // quake4 gui var
+// jmarshall - gui crash
+    backColor_r.Bind(backColor, 0);
+    backColor_g.Bind(backColor, 1);
+    backColor_b.Bind(backColor, 2);
+    backColor_w.Bind(backColor, 3);
+    matColor_r.Bind(matColor, 0);
+    matColor_g.Bind(matColor, 1);
+    matColor_b.Bind(matColor, 2);
+    matColor_w.Bind(matColor, 3);
+    foreColor_r.Bind(foreColor, 0);
+    foreColor_g.Bind(foreColor, 1);
+    foreColor_b.Bind(foreColor, 2);
+    foreColor_w.Bind(foreColor, 3);
+    hoverColor_r.Bind(hoverColor, 0);
+    hoverColor_g.Bind(hoverColor, 1);
+    hoverColor_b.Bind(hoverColor, 2);
+    hoverColor_w.Bind(hoverColor, 3);
+    borderColor_r.Bind(borderColor, 0);
+    borderColor_g.Bind(borderColor, 1);
+    borderColor_b.Bind(borderColor, 2);
+    borderColor_w.Bind(borderColor, 3);
+// jmarshall end
+#endif
+
+#ifdef _HUMANHEAD
+	translateFontNum = -1;
+#endif
 }
 
 /*
@@ -260,6 +412,13 @@ void idWindow::CleanUp() {
 	children.DeleteContents(true);
 	definedVars.DeleteContents(true);
 	timeLineEvents.DeleteContents(true);
+
+#ifdef _RAVEN
+// jmarshall
+    updateVars.Clear();
+// jmarshall end
+#endif
+
 	for (i = 0; i < SCRIPT_COUNT; i++) {
 		delete scripts[i];
 	}
@@ -297,6 +456,11 @@ idWindow::SetFont
 ================
 */
 void idWindow::SetFont() {
+#ifdef _HUMANHEAD
+	if(translateFontNum >= 0)
+		dc->SetFont(translateFontNum);
+	else
+#endif
 	dc->SetFont(fontNum);
 }
 
@@ -697,12 +861,19 @@ idWindow::AddCommand
 */
 void idWindow::AddCommand(const char *_cmd) {
 	idStr str = cmd;
+
+#ifdef _RAVEN //k: cmd string combined???
+	str += _cmd;
+	str += " ; ";
+#else
 	if (str.Length()) {
 		str += " ; ";
 		str += _cmd;
 	} else {
 		str = _cmd;
 	}
+#endif
+
 	cmd = str;
 }
 
@@ -1009,17 +1180,32 @@ void idWindow::Transition() {
 		idWinRectangle *r = NULL;
 		idWinVec4 *v4 = dynamic_cast<idWinVec4*>(data->data);
 		idWinFloat* val = NULL;
+#ifdef _RAVEN
+        idWinFloatPtr* valp = NULL;
+#endif
+
 		if (v4 == NULL) {
 			r = dynamic_cast<idWinRectangle*>(data->data);
 			if ( !r ) {
 				val = dynamic_cast<idWinFloat*>(data->data);
+#ifdef _RAVEN
+				if (!val)
+                {
+                    valp = dynamic_cast<idWinFloatPtr*>(data->data);
+				}
+#endif
 			}
 		}
+
 		if ( data->interp.IsDone( gui->GetTime() ) && data->data) {
 			if (v4) {
 				*v4 = data->interp.GetEndValue();
 			} else if ( val ) {
 				*val = data->interp.GetEndValue()[0];
+#ifdef _RAVEN
+            } else if (valp) {
+                *valp = data->interp.GetEndValue()[0];
+#endif
 			} else {
 				*r = data->interp.GetEndValue();
 			}
@@ -1030,6 +1216,10 @@ void idWindow::Transition() {
 					*v4 = data->interp.GetCurrentValue( gui->GetTime() );
 				} else if ( val ) {
 					*val = data->interp.GetCurrentValue( gui->GetTime() )[0];
+#ifdef _RAVEN
+                } else if (valp) {
+                    *valp = data->interp.GetCurrentValue(gui->GetTime())[0];
+#endif
 				} else {
 					*r = data->interp.GetCurrentValue( gui->GetTime() );
 				}
@@ -1110,6 +1300,9 @@ idWindow::DrawBackground
 ================
 */
 void idWindow::DrawBackground(const idRectangle &drawRect) {
+#ifdef _RAVEN //k: don't draw background color for main menu black screen.
+	if(parent && parent->parent) //k: only non-root directly children. for draw brackets
+#endif
 	if ( backColor.w() ) {
 		dc->DrawFilledRect(drawRect.x, drawRect.y, drawRect.w, drawRect.h, backColor);
 	}
@@ -1420,6 +1613,9 @@ void idWindow::SetupBackground() {
 		background = declManager->FindMaterial(backGroundName);
 		background->SetImageClassifications( 1 );	// just for resource tracking
 		if ( background && !background->TestMaterialFlag( MF_DEFAULTED ) ) {
+#ifdef _RAVEN //karin: don't SetSort to SS_GUI for post-process stage
+			if(!background->TestMaterialFlag(MF_NEED_CURRENT_RENDER))
+#endif
 			background->SetSort(SS_GUI );
 		}
 	}
@@ -1820,18 +2016,128 @@ idWinVar *idWindow::GetWinVarByName(const char *_name, bool fixup, drawWin_t** o
 	if (idStr::Icmp(_name, "backColor") == 0) {
 		retVar = &backColor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "backColor_r") == 0)
+    {
+        retVar = &backColor_r;
+    }
+    if (idStr::Icmp(_name, "backColor_g") == 0)
+    {
+        retVar = &backColor_g;
+    }
+    if (idStr::Icmp(_name, "backColor_b") == 0)
+    {
+        retVar = &backColor_b;
+    }
+    if (idStr::Icmp(_name, "backColor_w") == 0)
+    {
+        retVar = &backColor_w;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "matColor") == 0) {
 		retVar = &matColor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "matColor_r") == 0)
+    {
+        retVar = &matColor_r;
+    }
+    if (idStr::Icmp(_name, "matColor_g") == 0)
+    {
+        retVar = &matColor_g;
+    }
+    if (idStr::Icmp(_name, "matColor_b") == 0)
+    {
+        retVar = &matColor_b;
+    }
+    if (idStr::Icmp(_name, "matColor_w") == 0)
+    {
+        retVar = &matColor_w;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "foreColor") == 0) {
 		retVar = &foreColor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "foreColor_r") == 0)
+    {
+        retVar = &foreColor_r;
+    }
+    if (idStr::Icmp(_name, "foreColor_g") == 0)
+    {
+        retVar = &foreColor_g;
+    }
+    if (idStr::Icmp(_name, "foreColor_b") == 0)
+    {
+        retVar = &foreColor_b;
+    }
+    if (idStr::Icmp(_name, "foreColor_w") == 0)
+    {
+        retVar = &foreColor_w;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "hoverColor") == 0) {
 		retVar = &hoverColor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "hoverColor_r") == 0)
+    {
+        retVar = &hoverColor_r;
+    }
+    if (idStr::Icmp(_name, "hoverColor_g") == 0)
+    {
+        retVar = &hoverColor_g;
+    }
+    if (idStr::Icmp(_name, "hoverColor_b") == 0)
+    {
+        retVar = &hoverColor_b;
+    }
+    if (idStr::Icmp(_name, "hoverColor_w") == 0)
+    {
+        retVar = &hoverColor_w;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "borderColor") == 0) {
 		retVar = &borderColor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "borderColor_r") == 0)
+    {
+        retVar = &borderColor_r;
+    }
+    if (idStr::Icmp(_name, "borderColor_g") == 0)
+    {
+        retVar = &borderColor_g;
+    }
+    if (idStr::Icmp(_name, "borderColor_b") == 0)
+    {
+        retVar = &borderColor_b;
+    }
+    if (idStr::Icmp(_name, "borderColor_w") == 0)
+    {
+        retVar = &borderColor_w;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "textScale") == 0) {
 		retVar = &textScale;
 	}
@@ -1850,6 +2156,122 @@ idWinVar *idWindow::GetWinVarByName(const char *_name, bool fixup, drawWin_t** o
 	if (idStr::Icmp(_name, "hidecursor") == 0) {
 		retVar = &hideCursor;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall
+    if (idStr::Icmp(_name, "textspacing") == 0)
+    {
+        retVar = &textspacing;
+    }
+
+    if (idStr::Icmp(_name, "textstyle") == 0)
+    {
+        retVar = &textstyle;
+    }
+
+    if (idStr::Icmp(_name, "itemheight") == 0)
+    {
+        retVar = &itemheight;
+    }
+    if (idStr::Icmp(_name, "scrollbar") == 0)
+    {
+        retVar = &scrollbar;
+    }
+
+    if (idStr::Icmp(_name, "backgroundHover") == 0)
+    {
+        retVar = &backgroundHover;
+    }
+
+    if (idStr::Icmp(_name, "backgroundFocus") == 0)
+    {
+        retVar = &backgroundFocus;
+    }
+
+    if (idStr::Icmp(_name, "backgroundLine") == 0)
+    {
+        retVar = &backgroundLine;
+    }
+
+    if (idStr::Icmp(_name, "tabTextScales") == 0)
+    {
+        retVar = &tabTextScales;
+    }
+
+    if (idStr::Icmp(_name, "cvarMin") == 0)
+    {
+        retVar = &cvarMin;
+    }
+
+    if (idStr::Icmp(_name, "model1") == 0)
+    {
+        retVar = &model1;
+    }
+
+    if (idStr::Icmp(_name, "skin") == 0)
+    {
+        retVar = &skin;
+    }
+// jmarshall end
+#endif
+#ifdef _HUMANHEAD
+    if (idStr::Icmp(_name, "margins") == 0)
+    {
+        retVar = &margins;
+    }
+    if (idStr::Icmp(_name, "cornerSize") == 0)
+    {
+        retVar = &cornerSize;
+    }
+    if (idStr::Icmp(_name, "edgeSize") == 0)
+    {
+        retVar = &edgeSize;
+    }
+    if (idStr::Icmp(_name, "hoverMatColor") == 0)
+    {
+        retVar = &hoverMatColor;
+    }
+    if (idStr::Icmp(_name, "focusColor") == 0)
+    {
+        retVar = &focusColor;
+    }
+	if (idStr::Icmp(_name, "seperatorLines") == 0)
+	{
+		retVar = &seperatorLines;
+	}
+    if (idStr::Icmp(_name, "activeColor") == 0)
+    {
+        retVar = &activeColor;
+    }
+    if (idStr::Icmp(_name, "seperatorMargin") == 0)
+    {
+        retVar = &seperatorMargin;
+    }
+    if (idStr::Icmp(_name, "activeTab") == 0)
+    {
+        retVar = &activeTab;
+    }
+    if (idStr::Icmp(_name, "sepColor") == 0)
+    {
+        retVar = &sepColor;
+    }
+    if (idStr::Icmp(_name, "hoverBorderColor") == 0)
+    {
+        retVar = &hoverBorderColor;
+    }
+    if (idStr::Icmp(_name, "tabMargins") == 0)
+    {
+        retVar = &tabMargins;
+    }
+    if (idStr::Icmp(_name, "trailOffset") == 0)
+    {
+        retVar = &trailOffset;
+    }
+    if (idStr::Icmp(_name, "splineIn") == 0)
+    {
+        retVar = &splineIn;
+    }
+#endif
 
 	idStr key = _name;
 	bool guiVar = (key.Find(VAR_GUIPREFIX) >= 0);
@@ -1986,6 +2408,16 @@ bool idWindow::ParseInternalVar(const char *_name, idParser *src) {
 		}
 		return true;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall - quake 4
+    if (idStr::Icmp(_name, "textSpacing") == 0) {
+        src->ParseFloat(); //k: jmarshall is ParseInt
+        return true;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "shadow") == 0) {
 		textShadow = src->ParseInt();
 		return true;
@@ -2003,16 +2435,59 @@ bool idWindow::ParseInternalVar(const char *_name, idParser *src) {
 		return true;
 	}
 	if (idStr::Icmp(_name, "shear") == 0) {
+#ifdef _HUMANHEAD
+		idToken tok2;
+		src->ReadToken(&tok2);
+		if(!idStr::Icmp(tok2, "("))
+		{
+			src->SkipUntilString(")"); //k: TODO a gui var
+			shear.x = 0;
+		}
+		else if(!idStr::Icmp(tok2, "-"))
+		{
+			shear.x = - src->ParseFloat();
+		}
+		else
+			shear.x = tok2.GetFloatValue();
+#else
 		shear.x = src->ParseFloat();
+#endif
 		idToken tok;
 		src->ReadToken( &tok );
 		if ( tok.Icmp( "," ) ) {
 			src->Error( "Expected comma in shear definiation" );
 			return false;
 		}
+
+#ifdef _HUMANHEAD
+		src->ReadToken(&tok2);
+		if(!idStr::Icmp(tok2, "("))
+		{
+			src->SkipUntilString(")"); //k: TODO a gui var
+			shear.y = 0;
+		}
+		else if(!idStr::Icmp(tok2, "-"))
+		{
+			shear.y = - src->ParseFloat();
+		}
+		else
+			shear.y = tok2.GetFloatValue();
+#else
 		shear.y = src->ParseFloat();
+#endif
 		return true;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall - quake 4
+    if (idStr::Icmp(_name, "textStyle") == 0)
+    {
+        src->ParseInt();
+        return true;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "wantenter") == 0) {
 		if ( src->ParseBool() ) {
 			flags |= WIN_WANTENTER;
@@ -2049,6 +2524,22 @@ bool idWindow::ParseInternalVar(const char *_name, idParser *src) {
 		}
 		return true;
 	}
+
+#ifdef _RAVEN // quake4 gui var
+// jmarshall - quake 4
+    if (idStr::Icmp(_name, "alwaysThink") == 0)
+    {
+        src->ParseInt();
+        return true;
+    }
+    if (idStr::Icmp(_name, "chatWindow") == 0)
+    {
+        src->ParseInt();
+        return true;
+    }
+// jmarshall end
+#endif
+
 	if (idStr::Icmp(_name, "invertrect") == 0) {
 		if ( src->ParseBool() ) {
 			flags |= WIN_INVERTRECT;
@@ -2196,7 +2687,15 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 		// track what was parsed so we can maintain it for the guieditor
 		src->SetMarker ( );
 
-		if ( token == "windowDef" || token == "animationDef" ) {
+		if ( token == "windowDef" || token == "animationDef" 
+#ifdef _HUMANHEAD
+				 || token == "superWindowDef"
+				 || token == "buttonDef"
+				 || token == "creditDef"
+				 || token == "splineDef"
+				 // || token == "tabContainerDef" || token == "tabDef" //k: TODO: tab
+#endif
+		) {
 			if (token == "animationDef") {
 				visible = false;
 				rect = idRectangle(0,0,0,0);
@@ -2351,6 +2850,29 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 			dwt.win = win;
 			drawWindows.Append(dwt);
 		}
+#ifdef _HUMANHEAD
+		else if (token == "tabContainerDef") {
+			hhTabContainerWindow *win = new hhTabContainerWindow(dc, gui);
+			SaveExpressionParseState();
+			win->Parse(src, rebuild);
+			RestoreExpressionParseState();
+			AddChild(win);
+			win->SetParent(this);
+			dwt.simp = NULL;
+			dwt.win = win;
+			drawWindows.Append(dwt);
+		} else if (token == "tabDef") {
+			hhTabWindow *win = new hhTabWindow(dc, gui);
+			SaveExpressionParseState();
+			win->Parse(src, rebuild);
+			RestoreExpressionParseState();
+			AddChild(win);
+			win->SetParent(this);
+			dwt.simp = NULL;
+			dwt.win = win;
+			drawWindows.Append(dwt);
+		}
+#endif
 //
 //  added new onEvent
 		else if ( token == "onNamedEvent" ) {
@@ -2390,13 +2912,39 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 			namedEvents.Append(ev);
 		}
 		else if ( token == "onTime" ) {
-			idTimeLineEvent *ev = new idTimeLineEvent;
-
 			if ( !src->ReadToken(&token) ) {
 				src->Error( "Unexpected end of file" );
 				return false;
 			}
+
+#ifdef _RAVEN // quake4 gui onTime +
+// jmarshall - quake 4 guis
+//k: `+` means add last???
+			int lastEventTime = 0;
+            if (token == "+")
+            {
+                if (!src->ReadToken(&token))
+                {
+                    src->Error("Unexpected end of file");
+                    return false;
+                }
+				const int timeLineEventsNum = timeLineEvents.Num();
+				if(timeLineEventsNum > 0)
+				{
+					const idTimeLineEvent *lastTimeLineEvent = timeLineEvents[timeLineEventsNum - 1];
+					lastEventTime = lastTimeLineEvent->time;
+				}
+            }
+// jmarshall end
+#endif
+
+			idTimeLineEvent *ev = new idTimeLineEvent;
+
+#ifdef _RAVEN // quake4 gui onTime +
+			ev->time = lastEventTime + atoi(token.c_str());
+#else
 			ev->time = atoi(token.c_str());
+#endif
 
 			// reset the mark since we dont want it to include the time
 			src->SetMarker ( );
@@ -2484,6 +3032,17 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 			}
 #endif
 		}
+#ifdef _RAVEN // quake4 gui define
+// jmarshall - quake 4 guis
+        else if (token == "defineicon")
+        {
+            // TODO needs implementation
+            src->ReadToken(&token); // key
+            src->ReadToken(&token); // value
+        }
+// jmarshall end
+#endif
+
 		else if ( token == "float" ) {
 			src->ReadToken(&token);
 			work = token;
@@ -2509,8 +3068,7 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 				rvGEWindowWrapper::GetWrapper ( this )->GetVariableDict().Set ( va("float\t\"%s\"",token.c_str()), str );
 			}
 #endif
-		}
-		else if (ParseScriptEntry(token, src)) {
+		} else if (ParseScriptEntry(token, src)) {
 			// add the script to the wrappers script list
 			// If we are in the gui editor then add the internal var to the
 			// the wrapper
@@ -2541,8 +3099,7 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 				rvGEWindowWrapper::GetWrapper ( this )->SetStateKey ( token, str, false );
 			}
 #endif
-		}
-		else {
+		} else {
 			ParseRegEntry(token, src);
 			// hook into the main window parsing for the gui editor
 			// If we are in the gui editor then add the internal var to the
@@ -3916,7 +4473,11 @@ idWindow::IsSimple
 ================
 */
 bool idWindow::IsSimple() {
-
+#ifdef _RAVEN
+// jmarshall - quake 4 guis
+    return false;
+// jmarshall end
+#else
 	// dont do simple windows when in gui editor
 	if ( com_editors & EDITOR_GUI ) {
 		return false;
@@ -3945,6 +4506,7 @@ bool idWindow::IsSimple() {
 	}
 
 	return true;
+#endif
 }
 
 /*
@@ -3974,6 +4536,13 @@ bool idWindow::Interactive() {
 	if ( scripts[ ON_ACTION ] ) {
 		return true;
 	}
+
+#ifdef _HUMANHEAD
+	if (scripts[ ON_ACTIONRELEASE ]) {
+		return true;
+	}
+#endif
+
 	int c = children.Num();
 	for (int i = 0; i < c; i++) {
 		if (children[i]->Interactive()) {
@@ -4262,3 +4831,42 @@ bool idWindow::UpdateFromDictionary ( idDict& dict ) {
 
 	return true;
 }
+
+#ifdef _RAVEN
+// jmarshall - quake 4 gui
+void idWindow::ClearTransitions(void)
+{
+    transitions.Clear();
+    transitions.SetNum(0, false);
+    flags &= ~WIN_INTRANSITION;
+}
+// jmarshall end
+#endif
+
+#ifdef _HUMANHEAD
+void idWindow::Translate(int tFontNum)
+{
+	if(translateFontNum == tFontNum)
+		return;
+	translateFontNum = tFontNum;
+	int c = drawWindows.Num();
+
+	for (int i = 0; i < c; i++) {
+		if (drawWindows[i].win) {
+			drawWindows[i].win->Translate(tFontNum);
+		} else {
+			drawWindows[i].simp->Translate(tFontNum);
+		}
+	}
+}
+
+void idWindow::SetVisible(bool on)
+{
+    visible = on;
+    for(int i = 0; i < drawWindows.Num(); i++)
+    {
+        if(drawWindows[i].win)
+            drawWindows[i].win->SetVisible(on);
+    }
+}
+#endif

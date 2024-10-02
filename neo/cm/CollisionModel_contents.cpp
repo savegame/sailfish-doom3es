@@ -102,6 +102,10 @@ bool idCollisionModelManagerLocal::TestTrmVertsInBrush( cm_traceWork_t *tw, cm_b
 			tw->trace.c.dist = b->planes[bestPlane].Dist();
 			tw->trace.c.contents = b->contents;
 			tw->trace.c.material = b->material;
+#ifdef _RAVEN
+			if(b->material)
+				tw->trace.c.materialType = b->material->GetMaterialType();
+#endif
 			tw->trace.c.point = *p;
 			tw->trace.c.modelFeature = 0;
 			tw->trace.c.trmFeature = j;
@@ -226,6 +230,10 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 					tw->trace.c.dist = -tw->polys[bestPlane].plane.Dist();
 					tw->trace.c.contents = p->contents;
 					tw->trace.c.material = p->material;
+#ifdef _RAVEN
+					if(p->material)
+						tw->trace.c.materialType = p->material->GetMaterialType();
+#endif
 					tw->trace.c.point = v->p;
 					tw->trace.c.modelFeature = edge->vertexNum[j];
 					tw->trace.c.trmFeature = 0;
@@ -300,6 +308,10 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 			tw->trace.c.dist = p->plane.Dist();
 			tw->trace.c.contents = p->contents;
 			tw->trace.c.material = p->material;
+#ifdef _RAVEN
+			if(p->material)
+				tw->trace.c.materialType = p->material->GetMaterialType();
+#endif
 			tw->trace.c.point = tw->vertices[tw->edges[i].vertexNum[ !flip ]].p;
 			tw->trace.c.modelFeature = *reinterpret_cast<int *>(&p);
 			tw->trace.c.trmFeature = i;
@@ -377,6 +389,10 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 				tw->trace.c.dist = -tw->polys[j].plane.Dist();
 				tw->trace.c.contents = p->contents;
 				tw->trace.c.material = p->material;
+#ifdef _RAVEN
+				if(p->material)
+					tw->trace.c.materialType = p->material->GetMaterialType();
+#endif
 				tw->trace.c.point = tw->model->vertices[edge->vertexNum[ !flip ]].p;
 				tw->trace.c.modelFeature = edgeNum;
 				tw->trace.c.trmFeature = j;
@@ -422,7 +438,12 @@ int idCollisionModelManagerLocal::PointContents( const idVec3 p, cmHandle_t mode
 	cm_brush_t *b;
 	idPlane *plane;
 
+#ifdef _RAVEN
+	node = idCollisionModelManagerLocal::PointNode(p, static_cast<cm_model_t *>(model));
+#else
 	node = idCollisionModelManagerLocal::PointNode( p, idCollisionModelManagerLocal::models[model] );
+#endif
+
 	for ( bref = node->brushes; bref; bref = bref->next ) {
 		b = bref->b;
 		// test if the point is within the brush bounds
@@ -508,7 +529,11 @@ int idCollisionModelManagerLocal::ContentsTrm( trace_t *results, const idVec3 &s
 	tw.pointTrace = false;
 	tw.quickExit = false;
 	tw.numContacts = 0;
+#ifdef _RAVEN
+	tw.model = static_cast<cm_model_t *>(model);
+#else
 	tw.model = idCollisionModelManagerLocal::models[model];
+#endif
 	tw.start = start - modelOrigin;
 	tw.end = tw.start;
 
@@ -627,14 +652,22 @@ int idCollisionModelManagerLocal::Contents( const idVec3 &start,
 									cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
 	trace_t results;
 
+#ifdef _RAVEN
+	if(!model) {
+		common->Printf("idCollisionModelManagerLocal::Contents: invalid model\n");
+		return 0;
+	}
+#else
 	if ( model < 0 || model > idCollisionModelManagerLocal::maxModels || model > MAX_SUBMODELS ) {
 		common->Printf("idCollisionModelManagerLocal::Contents: invalid model handle\n");
 		return 0;
 	}
+
 	if ( !idCollisionModelManagerLocal::models || !idCollisionModelManagerLocal::models[model] ) {
 		common->Printf("idCollisionModelManagerLocal::Contents: invalid model\n");
 		return 0;
 	}
+#endif
 
 	return ContentsTrm( &results, start, trm, trmAxis, contentMask, model, modelOrigin, modelAxis );
 }

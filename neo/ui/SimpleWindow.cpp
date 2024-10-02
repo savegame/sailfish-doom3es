@@ -63,8 +63,16 @@ idSimpleWindow::idSimpleWindow(idWindow *win) {
 	rotate = win->rotate;
 	shear = win->shear;
 	backGroundName = win->backGroundName;
+
+#ifdef _HUMANHEAD
+	translateFontNum = -1;
+#endif
+
 	if (backGroundName.Length()) {
 		background = declManager->FindMaterial(backGroundName);
+#ifdef _RAVEN //karin: don't SetSort to SS_GUI for post-process stage
+		if(!background->TestMaterialFlag(MF_NEED_CURRENT_RENDER))
+#endif
 		background->SetSort( SS_GUI );
 		background->SetImageClassifications( 1 );	// just for resource tracking
 	}
@@ -222,6 +230,11 @@ void idSimpleWindow::Redraw(float x, float y) {
 	}
 
 	CalcClientRect(0, 0);
+#ifdef _HUMANHEAD
+	if(translateFontNum >= 0)
+		dc->SetFont(translateFontNum);
+	else
+#endif
 	dc->SetFont(fontNum);
 	drawRect.Offset(x, y);
 	clientRect.Offset(x, y);
@@ -435,3 +448,22 @@ size_t idSimpleWindow::Size() {
 	sz += backGroundName.Size();
 	return sz;
 }
+
+#ifdef _RAVEN
+// jmarshall - quake 4 gui
+void idSimpleWindow::ResetCinematics(void)
+{
+    if (background)
+    {
+        background->ResetCinematicTime(gui->GetTime());
+    }
+}
+// jmarshall end
+#endif
+#ifdef _HUMANHEAD
+void idSimpleWindow::Translate(int tFontNum)
+{
+	translateFontNum = tFontNum;
+}
+#endif
+

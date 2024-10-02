@@ -309,6 +309,28 @@ idRenderModel *idRenderModelManagerLocal::GetModel( const char *modelName, bool 
 	} else if ( extension.Icmp( "liquid" ) == 0  ) {
 		model = new idRenderModelLiquid;
 		model->InitFromFile( modelName );
+#ifdef _MODEL_OBJ
+	} else if (extension.Icmp("obj") == 0) {
+		model = new idRenderModelStatic;
+		model->InitFromFile(modelName);
+#endif
+#ifdef _MODEL_DAE
+	} else if (extension.Icmp("dae") == 0) {
+		model = new idRenderModelStatic;
+		model->InitFromFile(modelName);
+#endif
+#ifdef _RAVEN
+#ifdef _RAVEN_FX
+	} else if (extension.Icmp("bse") == 0) {
+		model = new rvRenderModelBSE;
+		model->InitFromFile(modelName);
+#endif
+#endif
+#ifdef _HUMANHEAD //k: beam model
+	} else if (extension.Icmp("beam") == 0) {
+		model = new hhRenderModelBeam;
+		model->InitFromFile(modelName);
+#endif
 	} else {
 
 		if ( extension.Length() ) {

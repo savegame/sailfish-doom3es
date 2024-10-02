@@ -5,6 +5,7 @@
 #pragma hdrstop
 
 #include "../Game_local.h"
+#include "../../idlib/geometry/Winding2D.h"
 
 /*
 ===============================================================================

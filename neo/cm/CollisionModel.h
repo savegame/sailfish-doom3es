@@ -147,8 +147,47 @@ public:
 	virtual void			LoadMap( const idMapFile *mapFile ) = 0;
 	// Frees all the collision models.
 	virtual void			FreeMap( void ) = 0;
+#ifdef _RAVEN
+	// Gets the clip handle for a model.
+	virtual void			LoadMap( const idMapFile *mapFile, bool forceCreateMap ) = 0;
+	// Frees all the collision models.
+	virtual void			FreeMap(const char* mapName) = 0;
+
+	// Creates a trace model from a collision model, returns true if succesfull.
+	virtual bool			TrmFromModel(const char* mapName, const char *modelName, idTraceModel &trm ) = 0;
+
+	// Frees a collision model.
+	virtual void	FreeModel(cmHandle_t model) = 0;
+
+	// sets up a trace model for collision with other trace models
+	virtual cmHandle_t ModelFromTrm(const char* mapName, const char* modelName, const idTraceModel &trm, const idMaterial *material ) = 0;
+
+	virtual  void	DrawModel(cmHandle_t handle, const idVec3& modelOrigin, const idMat3& modelAxis, const idVec3& viewOrigin, const idMat3& viewAxis, const float radius) = 0;
 
 	// Gets the clip handle for a model.
+	virtual cmHandle_t LoadModel(const char* mapName, const char *modelName, const bool precache = false ) = 0;
+	virtual cmHandle_t PreCacheModel(const char* mapName, const char *modelName ) = 0;
+
+	virtual void				DebugOutput( const idVec3 &viewOrigin, const idMat3 &viewAxis ) = 0;
+#endif
+#ifdef _HUMANHEAD
+// HUMANHEAD pdm: Support for level appending
+	virtual const char *	ContentsName(const int contents) const = 0;
+	const char *	StringFromContents( const int contents ) const;
+#if DEATHWALK_AUTOLOAD
+	virtual void			AppendMap( const idMapFile *mapFile ) = 0;
+	virtual bool			WillUseAlreadyLoadedCollisionMap( const idMapFile *mapFile) = 0;
+#endif
+// HUMANHEAD END
+
+    //HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+    virtual int				GetNumInlinedProcClipModels(void) = 0;
+#endif
+    //HUMANHEAD END
+#endif
+
+		// Gets the clip handle for a model.
 	virtual cmHandle_t		LoadModel( const char *modelName, const bool precache ) = 0;
 	// Sets up a trace model for collision with other trace models.
 	virtual cmHandle_t		SetupTrmModel( const idTraceModel &trm, const idMaterial *material ) = 0;
@@ -191,7 +230,11 @@ public:
 	virtual void			DrawModel( cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
 												const idVec3 &viewOrigin, const float radius ) = 0;
 	// Prints model information, use -1 handle for accumulated model info.
+#ifdef _RAVEN
+	virtual void			ModelInfo(int num) = 0;
+#else
 	virtual void			ModelInfo( cmHandle_t model ) = 0;
+#endif
 	// Lists all loaded models.
 	virtual void			ListModels( void ) = 0;
 	// Writes a collision model file for the given map entity.

@@ -53,6 +53,12 @@ enum {
 	FX_ATTACHENTITY,
 	FX_LAUNCH,
 	FX_SHOCKWAVE
+#ifdef _HUMANHEAD
+		,
+	// HUMANHEAD nla - Support for the 'useAxis'
+	FX_USEAXIS,
+	// HUMANHEAD nla
+#endif
 };
 
 //
@@ -66,6 +72,12 @@ typedef struct {
 	idStr					name;
 	idStr					fire;
 
+#ifdef _HUMANHEAD
+	// HUMANHEAD nla
+	int					useAxis;
+	idVec3				dir;
+	// HUMANHEAD END
+#endif
 	float					delay;
 	float					duration;
 	float					restart;
@@ -109,7 +121,11 @@ class idDeclFX : public idDecl {
 public:
 	virtual size_t			Size( void ) const;
 	virtual const char *	DefaultDefinition( void ) const;
+#ifdef _RAVEN
+		virtual bool			Parse(const char *text, const int textLength, bool noCaching = false);
+#else
 	virtual bool			Parse( const char *text, const int textLength );
+#endif
 	virtual void			FreeData( void );
 	virtual void			Print( void ) const;
 	virtual void			List( void ) const;
@@ -119,6 +135,11 @@ public:
 
 private:
 	void					ParseSingleFXAction( idLexer &src, idFXSingleAction& FXAction );
+#ifdef _HUMANHEAD
+    // HUMANHEAD nla
+    void	ParseUseAxis(idStr& text, idFXSingleAction& action) const;
+    // HUMANHEAD END
+#endif
 };
 
 #endif /* !__DECLFX_H__ */

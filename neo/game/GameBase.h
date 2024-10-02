@@ -30,9 +30,11 @@ If you have questions concerning this license or the applicable additional terms
 #define	__GAMEBASE_H__
 
 // default scripts
+#ifndef _HUMANHEAD
 #define SCRIPT_DEFAULTDEFS		"script/doom_defs.script"
 #define SCRIPT_DEFAULT			"script/doom_main.script"
 #define SCRIPT_DEFAULTFUNC		"doom_main"
+#endif
 
 #define LAGO_IMG_WIDTH			64
 #define LAGO_IMG_HEIGHT			64

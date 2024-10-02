@@ -41,6 +41,17 @@ If you have questions concerning this license or the applicable additional terms
 ===============================================================================
 */
 
+#ifdef _RAVEN
+struct wrapInfo_t {
+	int lastWhitespace;
+	int maxIndex;
+	wrapInfo_t ( void ) {
+		lastWhitespace = -1;
+		maxIndex = -1;
+	}
+};
+#endif
+
 class idFile;
 class idDemoFile;
 

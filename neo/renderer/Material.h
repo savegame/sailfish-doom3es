@@ -46,6 +46,15 @@ class idCinematic;
 class idUserInterface;
 class idMegaTexture;
 
+#ifdef _HUMANHEAD
+// HUMANHEAD tmj: type of subview that this surface represents
+typedef enum {
+	SC_MIRROR,
+	SC_PORTAL,
+	SC_PORTAL_SKYBOX,
+} subviewClass_t;
+#endif
+
 // moved from image.h for default parm
 typedef enum {
 	TF_LINEAR,
@@ -79,6 +88,11 @@ typedef enum {
 	DFRM_EXPAND,
 	DFRM_MOVE,
 	DFRM_EYEBALL,
+#ifdef _HUMANHEADxxx
+	DFRM_BEAM,		// HUMANHEAD
+	DFRM_CORONA,	// HUMANHEAD
+	DFRM_JITTER,	// HUMANHEAD: Jitter the model
+#endif
 	DFRM_PARTICLE,
 	DFRM_PARTICLE2,
 	DFRM_TURB
@@ -90,6 +104,10 @@ typedef enum {
 	DI_CUBE_RENDER,
 	DI_MIRROR_RENDER,
 	DI_XRAY_RENDER,
+#ifdef _HUMANHEAD
+	DI_PORTAL_RENDER, // HUMANHEAD
+	DI_SKYBOX_RENDER, // HUMANHEAD tmj
+#endif
 	DI_REMOTE_RENDER
 } dynamicidImage_t;
 
@@ -110,6 +128,18 @@ typedef enum {
 	OP_TYPE_AND,
 	OP_TYPE_OR,
 	OP_TYPE_SOUND
+#ifdef _RAVEN
+	// RAVEN BEGIN
+// rjohnson: new shader stage system
+	,
+	OP_TYPE_GLSL_ENABLED,
+	OP_TYPE_POT_X,
+	OP_TYPE_POT_Y,
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+	, OP_TYPE_FRAGMENTPROGRAMS // HUMANHEAD CJR:  Added so fragment programs support can be toggled
+#endif
 } expOpType_t;
 
 typedef enum {
@@ -136,6 +166,10 @@ typedef enum {
 	EXP_REG_GLOBAL5,
 	EXP_REG_GLOBAL6,
 	EXP_REG_GLOBAL7,
+
+#ifdef _HUMANHEAD
+	EXP_REG_DISTANCE, // HUMANHEAD: CJR
+#endif
 
 	EXP_REG_NUM_PREDEFINED
 } expRegister_t;
@@ -191,6 +225,9 @@ typedef enum {
 
 static const int	MAX_FRAGMENT_IMAGES = 8;
 static const int	MAX_VERTEX_PARMS = 4;
+#ifdef _RAVEN
+class rvNewShaderStage;
+#endif
 
 typedef struct {
 	int					vertexProgram;
@@ -202,7 +239,17 @@ typedef struct {
 	idImage *			fragmentProgramImages[MAX_FRAGMENT_IMAGES];
 
 	idMegaTexture		*megaTexture;		// handles all the binding and parameter setting
+	int 				glslProgram;
 } newShaderStage_t;
+
+#ifdef _HUMANHEAD
+//HUMANHEAD bjk: specular exponent
+typedef struct {
+	float				exponent;
+	float				brightness;
+} specData_t;
+//HUMANHEAD END
+#endif
 
 typedef struct {
 	int					conditionRegister;	// if registers[conditionRegister] == 0, skip stage
@@ -218,6 +265,23 @@ typedef struct {
 	float				privatePolygonOffset;	// a per-stage polygon offset
 
 	newShaderStage_t	*newStage;			// vertex / fragment program based stage
+
+#ifdef _RAVEN
+	// RAVEN BEGIN
+// rjohnson: new shader stage system
+	rvNewShaderStage	*newShaderStage;
+#endif
+
+#ifdef _HUMANHEAD
+    bool				isGlow; // HUMANHEAD CJR:  Glow overlay
+    bool				isScopeView; // HUMANHEAD CJR:  Scope view
+    bool				isShuttleView;	// HUMANHEAD pdm: shuttle view
+    bool				isNotScopeView; // HUMANHEAD CJR:  Does not show up in scope view
+    bool				isSpiritWalk; // HUMANHEAD CJR: Spiritwalk view
+    bool				isNotSpiritWalk; // HUMANHEAD CJR:  Does not show up in spirit view
+
+    specData_t			specular;	//HUMANHEAD bjk: specular exponent
+#endif
 } shaderStage_t;
 
 typedef enum {
@@ -228,7 +292,15 @@ typedef enum {
 } materialCoverage_t;
 
 typedef enum {
+#ifdef _RAVEN
+	SS_MIN = -10000,
+// RAVEN BEGIN
+	SS_SUBVIEW = -4,	// mirrors, viewscreens, etc
+	SS_PREGUI = -3,		// guis
+// RAVEN END
+#else
 	SS_SUBVIEW = -3,	// mirrors, viewscreens, etc
+#endif
 	SS_GUI = -2,		// guis
 	SS_BAD = -1,
 	SS_OPAQUE,			// opaque
@@ -259,7 +331,11 @@ const int MAX_SHADER_STAGES			= 256;
 
 const int MAX_TEXGEN_REGISTERS		= 4;
 
+#ifdef _HUMANHEAD
+const int MAX_ENTITY_SHADER_PARMS	= 13; // HUMANHEAD pdm: increased from 12
+#else
 const int MAX_ENTITY_SHADER_PARMS	= 12;
+#endif
 
 // material flags
 typedef enum {
@@ -270,6 +346,21 @@ typedef enum {
 	MF_NOSELFSHADOW				= BIT(4),
 	MF_NOPORTALFOG				= BIT(5),	// this fog volume won't ever consider a portal fogged out
 	MF_EDITOR_VISIBLE			= BIT(6)	// in use (visible) per editor
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jscott: for portal skies
+	,
+	MF_SKY						= BIT(7),
+	MF_NEED_CURRENT_RENDER		= BIT(8)	// for hud guis that need sort order preseved but need back end too
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+	, MF_USESDISTANCE				= BIT(7),	// HUMANHEAD pdm: distance optimization
+	MF_LIGHT_WHOLE_MESH			= BIT(8),	// HUMANHEAD bjk: dont cull tris with light bounds
+    //HUMANHEAD PCF rww 05/11/06 - can be used explicitly by surfaces which use alpha coverage but do not want collision anyway
+    MF_SKIPCLIP = BIT(9)
+		//HUMANHEAD END
+#endif
 } materialFlags_t;
 
 // contents flags, NOTE: make sure to keep the defines in doom_defs.script up to date with these!
@@ -387,6 +478,13 @@ typedef enum {
 	SURF_DISCRETE				= BIT(10),	// not clipped or merged by utilities
 	SURF_NOFRAGMENT				= BIT(11),	// dmap won't cut surface at each bsp boundary
 	SURF_NULLNORMAL				= BIT(12)	// renderbump will draw this surface as 0x80 0x80 0x80, which
+#ifdef _RAVEN
+		, SURF_BOUNCE = BIT(13),  // projectiles should bounce off this surface
+
+// dluetscher: added no T fix
+	SURF_NO_T_FIX				= BIT(14),	// merge surfaces (like decals), but does not try to T-fix them
+
+#endif
 											// won't collect light from any angle
 } surfaceFlags_t;
 
@@ -400,7 +498,11 @@ public:
 	virtual size_t		Size( void ) const;
 	virtual bool		SetDefaultText( void );
 	virtual const char *DefaultDefinition( void ) const;
+#ifdef _RAVEN
+		virtual bool		Parse(const char *text, const int textLength, bool noCaching = false);
+#else
 	virtual bool		Parse( const char *text, const int textLength );
+#endif
 	virtual void		FreeData( void );
 	virtual void		Print( void ) const;
 
@@ -639,6 +741,28 @@ public:
 	bool				SuppressInSubview() const				{ return suppressInSubview; };
 	bool				IsPortalSky() const						{ return portalSky; };
 	void				AddReference();
+#ifdef _RAVEN // quake4 material
+// RAVEN BEGIN
+// dluetscher: added SURF_NO_T_FIX to merge surfaces (like decals), but skipping any T-junction fixing
+	bool				NoTFix( void ) const { return ( surfaceFlags & SURF_NO_T_FIX ) != 0; }
+// RAVEN END
+
+	const rvDeclMatType* GetMaterialType(void) const { return(materialType); }
+// RAVEN BEGIN
+// rjohnson: added vertex randomizing
+						// regs should point to a float array large enough to hold GetNumRegisters() floats
+	void				EvaluateRegisters( float *regs, const float entityParms[MAX_ENTITY_SHADER_PARMS], 
+											const struct viewDef_s *view, int soundEmitter = 0, idVec3 *randomizer = NULL ) const;
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+						// HUMANHEAD tmj: returns how the subview should be rendered (i.e. mirror/portal/skybox)
+	subviewClass_t		GetSubviewClass( void) const { return subviewClass; }
+	int					GetDirectPortalDistance() const { return directPortalDistance; } // HUMANHEAD CJR:  direct render portal distance cull
+#endif
+#ifdef _NO_LIGHT
+		bool IsNoLight(void) const { return noLight; }
+#endif
 
 private:
 	// parse the entire material
@@ -678,6 +802,29 @@ private:
 	int					entityGui;			// draw a gui with the idUserInterface from the renderEntity_t
 											// non zero will draw gui, gui2, or gui3 from renderEnitty_t
 	mutable idUserInterface	*gui;			// non-custom guis are shared by all users of a material
+#ifdef _RAVEN // quake4 material
+// RAVEN BEGIN
+// jscott: for material types
+	const rvDeclMatType* materialType;
+	byte* materialTypeArray;	// an array of material type indices generated from the hit image
+	idStr				materialTypeArrayName;
+	int					MTAWidth;
+	int					MTAHeight;
+
+	// rjohnson: started tracking image/material usage
+	int					useCount;
+	int					globalUseCount;
+
+	// AReis: New portal distance culling stuff.
+	float				portalDistanceNear;
+	float				portalDistanceFar;
+	idImage* portalImage;
+// RAVEN END
+#endif
+#ifdef _HUMANHEAD
+	subviewClass_t		subviewClass;		// HUMANHEAD tmj: Type of subview this surface points to
+	int					directPortalDistance; // HUMANHEAD:  Distance at which direct render portals are drawn
+#endif
 
 	bool				noFog;				// surface does not create fog interactions
 
@@ -737,6 +884,9 @@ private:
 	bool				suppressInSubview;
 	bool				portalSky;
 	int					refCount;
+#ifdef _NO_LIGHT
+		bool 				noLight;
+#endif
 };
 
 typedef idList<const idMaterial *> idMatList;

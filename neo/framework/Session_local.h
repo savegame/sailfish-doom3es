@@ -39,6 +39,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/RenderWorld.h"
 #include "ui/ListGUI.h"
 
+#ifdef _RAVEN
+#define MAX_MP_LOADING_GUI_ICONS 20
+#endif
 /*
 
 IsConnectedToServer();
@@ -60,6 +63,9 @@ else
 
 */
 
+#ifdef _RAVEN //karin: pause when finished loading
+extern idCVar com_skipLevelLoadPause;
+#endif
 typedef struct {
 	usercmd_t	cmd;
 	int			consistencyHash;
@@ -170,6 +176,17 @@ public:
 	bool				QuickLoad();
 
 	const char			*GetAuthMsg( void );
+#ifdef _HUMANHEAD
+		virtual bool ShouldAppendLevel(void) const;
+		virtual const char * GetDeathwalkMapName(void) const;
+		const char * GetDeathwalkMapName(const char *mapName) const;
+		void ShowSubtitle(const idStrList &strList);
+		void HideSubtitle(void) const;
+
+		idUserInterface 	*guiSubtitles;
+		bool				subtitleTextScaleInited;
+		float 				subtitlesTextScale[3];
+#endif
 
 	//=====================================
 
@@ -273,6 +290,12 @@ public:
 	int					wipeStartTic;
 	int					wipeStopTic;
 	bool				wipeHold;
+#ifdef _RAVEN //karin: pause when finished loading
+		bool				finishedLoading;
+		bool				FinishedLoading(void) const {
+			return !com_skipLevelLoadPause.GetBool() && finishedLoading;
+		}
+#endif
 
 #if ID_CONSOLE_LOCK
 	int					emptyDrawCount;				// watchdog to force the main menu to restart
@@ -347,7 +370,9 @@ public:
 	void				SetModsMenuGuiVars( void );
 	void				SetMainMenuSkin( void );
 	void				SetPbMenuGuiVars( void );
-
+#ifdef _RAVEN
+		void				HandleLoadingCommands(const char *menuCommand);
+#endif
 	// DG: true if running the Demo version of Doom3 (for FT_IsDemo, see Common.h)
 	bool				IsDemoVersion()
 	{

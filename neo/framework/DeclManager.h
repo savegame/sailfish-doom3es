@@ -33,6 +33,13 @@ If you have questions concerning this license or the applicable additional terms
 
 class idFile;
 
+#ifdef _RAVEN // quake4 new decl
+class rvDeclEffect;
+class rvDeclPlayback;
+class rvDeclLipSync;
+class rvDeclMatType;
+#endif
+
 /*
 ===============================================================================
 
@@ -85,6 +92,27 @@ typedef enum {
 
 	// new decl types can be added here
 
+#ifdef _RAVEN // quake4 new decl
+	// RAVEN BEGIN
+// jscott: added new decls
+        DECL_MATERIALTYPE,
+        DECL_LIPSYNC,
+        DECL_PLAYBACK,
+        DECL_EFFECT,
+// rjohnson: camera is now contained in a def for frame commands
+        DECL_CAMERADEF,
+// jscott: don't use these
+//      DECL_FX,
+//      DECL_PARTICLE,
+// RAVEN END
+//
+
+	// new decl types can be added here
+	DECL_PLAYER_MODEL,
+#endif
+#ifdef _HUMANHEAD
+    DECL_BEAM, // HUMANHEAD CJR
+#endif
 	DECL_MAX_TYPES			= 32
 } declType_t;
 
@@ -132,6 +160,45 @@ public:
 	virtual void			Print( void ) const = 0;
 };
 
+#ifdef _RAVEN // quake4 guide
+// RAVEN BEGIN
+// jscott: for guides
+#define MAX_GUIDE_PARMS				20
+#define	MAX_GUIDE_SHADER_SIZE		20480
+
+class rvDeclGuide
+{
+private:
+    idStr		mName;
+    idStr		mParms[MAX_GUIDE_PARMS];
+    idStr		mDefinition;
+    int			mNumParms;
+
+public:
+    rvDeclGuide( idStr &name );
+    ~rvDeclGuide( void );
+
+    const char	*GetName( void ) const
+    {
+        return( mName.c_str() );
+    }
+    int			GetNumParms( void ) const
+    {
+        return( mNumParms );
+    }
+    const char	*GetParm( int index ) const
+    {
+        assert( index < mNumParms );
+        return( mParms[index].c_str() );
+    }
+
+    void		SetParm( int index, const char *value );
+    void		RemoveOuterBracing( void );
+    void		Parse( idLexer *src );
+    bool		Evaluate( idLexer *src, idStr &definition );
+};
+// RAVEN END
+#endif
 
 class idDecl {
 public:
@@ -250,6 +317,14 @@ ID_INLINE idDecl *idDeclAllocator( void ) {
 class idMaterial;
 class idDeclSkin;
 class idSoundShader;
+#ifdef _RAVEN
+class idDeclTable;
+//k for FindMapDef
+class idDeclEntityDef;
+#endif
+#ifdef _HUMANHEAD
+class hhDeclBeam; // HUMANHEAD CJR
+#endif
 
 class idDeclManager {
 public:
@@ -318,10 +393,52 @@ public:
 	virtual	const idMaterial *		FindMaterial( const char *name, bool makeDefault = true ) = 0;
 	virtual const idDeclSkin *		FindSkin( const char *name, bool makeDefault = true ) = 0;
 	virtual const idSoundShader *	FindSound( const char *name, bool makeDefault = true ) = 0;
+#ifdef _RAVEN
+	virtual const idDeclTable *		FindTable( const char *name, bool makeDefault = true ) = 0;
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	FindMaterialType( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclLipSync *	FindLipSync( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclPlayback *	FindPlayback( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclEffect *	FindEffect( const char *name, bool makeDefault = true ) = 0;
+// RAVEN END
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	MaterialTypeByIndex( int index, bool forceParse = true ) = 0;
+	virtual const rvDeclLipSync *	LipSyncByIndex( int index, bool forceParse = true ) = 0;
+	virtual	const rvDeclPlayback *	PlaybackByIndex( int index, bool forceParse = true ) = 0;
+	virtual const rvDeclEffect *	EffectByIndex( int index, bool forceParse = true ) = 0;
 
+	virtual bool					GetPlaybackData( const rvDeclPlayback *playback, int control, int now, int last, class rvDeclPlaybackData *pbd ) = 0;
+	virtual bool					SetPlaybackData(rvDeclPlayback* playback, int now, int control, class rvDeclPlaybackData* pbd) = 0;
+	virtual void					StartPlaybackRecord(rvDeclPlayback* playback) = 0;
+	virtual bool					FinishPlayback( rvDeclPlayback *playback ) = 0;
+// RAVEN END
+
+							// If makeDefault is true, a default decl of appropriate type will be created
+							// if an explicit one isn't found. If makeDefault is false, NULL will be returned
+							// if the decl wasn't explcitly defined.
+	virtual const idDecl *	FindType( declType_t type, const char *name, bool makeDefault, bool noCaching ) = 0;
+	//k: find map def
+	virtual const idDeclEntityDef * FindMapDef(const char *mapName, const char *entityFilter = 0) const = 0;
+	virtual idDeclEntityDef * FindMapDef(const char *mapName, const char *entityFilter = 0) = 0;
+// RAVEN BEGIN
+// jscott: for timing
+							// Registers a new folder with decl files.
+	virtual void			RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique = false, bool norecurse = false ) = 0;
+// RAVEN END
+#endif
 	virtual const idMaterial *		MaterialByIndex( int index, bool forceParse = true ) = 0;
 	virtual const idDeclSkin *		SkinByIndex( int index, bool forceParse = true ) = 0;
 	virtual const idSoundShader *	SoundByIndex( int index, bool forceParse = true ) = 0;
+#ifdef _HUMANHEAD
+    //HUMANHEAD: aob
+    virtual const hhDeclBeam *		FindBeam( const char *name, bool makeDefault = true ) = 0; // HUMANHEAD CJR
+    virtual const hhDeclBeam *		BeamByIndex( int index, bool forceParse = true ) = 0; // HUMANHEAD CJR
+
+	virtual void					SetInsideLevelLoad(bool b) = 0;
+	virtual bool					GetInsideLevelLoad(void) = 0;
+#endif
 };
 
 extern idDeclManager *		declManager;

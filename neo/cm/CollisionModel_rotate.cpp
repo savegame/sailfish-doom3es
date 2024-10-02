@@ -323,6 +323,12 @@ int idCollisionModelManagerLocal::RotateEdgeThroughEdge( cm_traceWork_t *tw, con
 			q = - b - sqrtd;
 		}
 		frac1 = q / a;
+#ifdef _HUMANHEAD
+		if (q == 0.0f) { //HUMANHEAD rww - CUFPF
+			frac2 = 0.0f;
+		}
+		else
+#endif
 		frac2 = c / q;
 	}
 
@@ -603,6 +609,10 @@ void idCollisionModelManagerLocal::RotateTrmEdgeThroughPolygon( cm_traceWork_t *
 		}
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_EDGE;
 		tw->trace.c.modelFeature = edgeNum;
 		tw->trace.c.trmFeature = trmEdge - tw->edges;
@@ -968,6 +978,10 @@ void idCollisionModelManagerLocal::RotateTrmVertexThroughPolygon( cm_traceWork_t
 		tw->trace.c.dist = poly->plane.Dist();
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_TRMVERTEX;
 		tw->trace.c.modelFeature = *reinterpret_cast<int *>(&poly);
 		tw->trace.c.trmFeature = v - tw->vertices;
@@ -1036,6 +1050,10 @@ void idCollisionModelManagerLocal::RotateVertexThroughTrmPolygon( cm_traceWork_t
 		tw->trace.c.dist = tw->trace.c.normal * v->p;
 		tw->trace.c.contents = poly->contents;
 		tw->trace.c.material = poly->material;
+#ifdef _RAVEN
+		if(poly->material)
+			tw->trace.c.materialType = poly->material->GetMaterialType();
+#endif
 		tw->trace.c.type = CONTACT_MODELVERTEX;
 		tw->trace.c.modelFeature = v - tw->model->vertices;
 		tw->trace.c.trmFeature = trmpoly - tw->polys;
@@ -1264,6 +1282,12 @@ void idCollisionModelManagerLocal::Rotation180( trace_t *results, const idVec3 &
 	cm_trmVertex_t *vert;
 	ALIGN16( static cm_traceWork_t tw );
 
+#ifdef _RAVEN
+	if (!model) {
+		common->Printf("idCollisionModelManagerLocal::Rotation180: invalid model\n");
+		return;
+	}
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model > idCollisionModelManagerLocal::maxModels ) {
 		common->Printf("idCollisionModelManagerLocal::Rotation180: invalid model handle\n");
 		return;
@@ -1272,7 +1296,7 @@ void idCollisionModelManagerLocal::Rotation180( trace_t *results, const idVec3 &
 		common->Printf("idCollisionModelManagerLocal::Rotation180: invalid model\n");
 		return;
 	}
-
+#endif
 	idCollisionModelManagerLocal::checkCount++;
 
 	tw.trace.fraction = 1.0f;
@@ -1288,7 +1312,11 @@ void idCollisionModelManagerLocal::Rotation180( trace_t *results, const idVec3 &
 	assert( tw.angle > -180.0f && tw.angle < 180.0f );
 	tw.angle = idMath::ClampFloat(-180.0f, 180.0f, tw.angle); // DG: enforce it for the rare cases the assert would trigger
 	tw.maxTan = initialTan = idMath::Fabs( tan( ( idMath::PI / 360.0f ) * tw.angle ) );
+#ifdef _RAVEN
+	tw.model = static_cast<cm_model_t *>(model);
+#else
 	tw.model = idCollisionModelManagerLocal::models[model];
+#endif
 	tw.start = start - modelOrigin;
 	// rotation axis, axis is assumed to be normalized
 	tw.axis = axis;

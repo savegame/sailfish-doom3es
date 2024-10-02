@@ -1,4 +1,4 @@
-// Copyright (C) 2004 Id Software, Inc.
+	// Copyright (C) 2004 Id Software, Inc.
 //
 
 #ifndef __GAME_LOCAL_H__
@@ -1008,6 +1008,16 @@ const int	CINEMATIC_SKIP_DELAY	= SEC2MS( 2.0f );
 //HUMANHEAD: aob - must be after Script_Thread.h
 #include "Prey/prey_script_thread.h"
 //HUMANHEAD END
+
+#include "../idlib/geometry/JointTransform.h"
+#include "../idlib/geometry/Surface.h"
+#include "../idlib/geometry/TraceModel.h"
+#include "../idlib/LangDict.h"
+#include "../humanhead/idlib/math/prey_interpolate.h"
+#include "../humanhead/idlib/containers/PreyStack.h"
+#include "../humanhead/idlib/math/prey_math.h"
+#include "../idlib/Timer.h"
+
 
 //HUMANHEAD: aob - moved operator= code to this helper function
 #ifdef HUMANHEAD

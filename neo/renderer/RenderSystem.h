@@ -134,6 +134,17 @@ const int SCREEN_HEIGHT			= 480;
 
 class idRenderWorld;
 
+#ifdef _RAVEN
+// RAVEN BEGIN
+// rjohnson: new blur special effect
+typedef enum
+{
+	SPECIAL_EFFECT_NONE = 0,
+	SPECIAL_EFFECT_BLUR		= 0x00000001,
+	SPECIAL_EFFECT_AL		= 0x00000002,
+	SPECIAL_EFFECT_MAX,
+} ESpecialEffectType;
+#endif
 
 class idRenderSystem {
 public:
@@ -189,6 +200,20 @@ public:
 	virtual void			DrawBigChar( int x, int y, int ch, const idMaterial *material ) = 0;
 	virtual void			DrawBigStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) = 0;
 
+#ifdef _HUMANHEAD
+	virtual void			SetEntireSceneMaterial(idMaterial* material) = 0; // HUMANHEAD CJR
+	virtual bool			IsScopeView() = 0;// HUMANHEAD CJR
+	virtual void			SetScopeView(bool view) = 0; // HUMANHEAD CJR
+	virtual bool			IsShuttleView() = 0;// HUMANHEAD pdm
+	virtual void			SetShuttleView(bool view) = 0;// HUMANHEAD pdm
+	virtual bool			SupportsFragmentPrograms(void) = 0; // HUMANHEAD CJR
+	virtual int				VideoCardNumber(void) = 0; // HUMANHEAD CJR
+												
+#if _HH_RENDERDEMO_HACKS //HUMANHEAD rww
+	virtual void			LogViewRender(const struct renderView_s *view) = 0;
+#endif //HUMANHEAD END
+#endif
+
 	// dump all 2D drawing so far this frame to the demo file
 	virtual void			WriteDemoPics() = 0;
 
@@ -234,6 +259,35 @@ public:
 	// texture filter / mipmapping / repeat won't be modified by the upload
 	// returns false if the image wasn't found
 	virtual bool			UploadImage( const char *imageName, const byte *data, int width, int height ) = 0;
+
+#ifdef _RAVEN
+// jnewquist: Track texture usage during cinematics for streaming purposes
+#ifndef _CONSOLE
+	enum TextureTrackCommand {
+		TEXTURE_TRACK_BEGIN,
+		TEXTURE_TRACK_UPDATE,
+		TEXTURE_TRACK_END
+	};
+	virtual void			TrackTextureUsage( TextureTrackCommand command, int frametime = 0, const char *name=NULL ) = 0;
+#endif
+// RAVEN END
+
+// RAVEN BEGIN
+// rjohnson: new blur special effect
+	virtual void			SetSpecialEffect( ESpecialEffectType Which, bool Enabled ) = 0;
+	virtual void			SetSpecialEffectParm( ESpecialEffectType Which, int Parm, float Value ) = 0;
+	virtual void			ShutdownSpecialEffects( void ) = 0;
+// RAVEN END
+
+	// RAVEN BEGIN
+	// jnewquist: Deal with flipped back-buffer copies on Xenon
+	virtual void			DrawStretchCopy( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material ) = 0;
+	// RAVEN END
+	virtual void			DebugGraph( float cur, float min, float max, const idVec4 &color ) = 0;
+#endif
+#ifdef _MULTITHREAD
+	virtual void EndFrame(byte *data, int *frontEndMsec, int *backEndMsec) = 0;
+#endif
 };
 
 extern idRenderSystem *			renderSystem;

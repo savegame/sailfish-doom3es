@@ -44,6 +44,11 @@ class idUserInterface;
 class idUserInterfaceManager;
 class idNetworkSystem;
 
+#ifdef _HUMANHED
+
+#include "prey/Game.h"
+
+#else
 /*
 ===============================================================================
 
@@ -395,5 +400,6 @@ typedef struct {
 extern "C" {
 typedef gameExport_t * (*GetGameAPI_t)( gameImport_t *import );
 }
+#endif
 
 #endif /* !__GAME_H__ */

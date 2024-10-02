@@ -184,6 +184,9 @@ void idSoundChannel::Clear( void ) {
 		lastV[j] = 0.0f;
 	}
 	memset( &parms, 0, sizeof(parms) );
+#ifdef _HUMANHEAD
+	parms.subIndex = -1;
+#endif
 
 	triggered = false;
 	paused = false;
@@ -383,6 +386,9 @@ void idSoundEmitterLocal::Clear( void ) {
 	spatializedOrigin.Zero();
 
 	memset( &parms, 0, sizeof( parms ) );
+#ifdef _HUMANHEAD
+	parms.subIndex = -1;
+#endif
 }
 
 /*
@@ -421,6 +427,33 @@ void idSoundEmitterLocal::OverrideParms( const soundShaderParms_t *base,
 	} else {
 		out->soundClass = base->soundClass;
 	}
+
+#ifdef _HUMANHEAD
+	if (over->subIndex) {
+		out->subIndex = over->subIndex;
+	} else {
+		out->subIndex = base->subIndex;
+	}
+
+	if (over->profanityIndex) {
+		out->profanityIndex = over->profanityIndex;
+	} else {
+		out->profanityIndex = base->profanityIndex;
+	}
+
+	if (over->profanityDelay) {
+		out->profanityDelay = over->profanityDelay;
+	} else {
+		out->profanityDelay = base->profanityDelay;
+	}
+
+	if (over->profanityDuration) {
+		out->profanityDuration = over->profanityDuration;
+	} else {
+		out->profanityDuration = base->profanityDuration;
+	}
+#endif
+
 	out->soundShaderFlags = base->soundShaderFlags | over->soundShaderFlags;
 }
 
@@ -1274,3 +1307,21 @@ void idSlowChannel::GatherChannelSamples( int sampleOffset44k, int sampleCount44
 	if ( state == PLAYBACK_ADVANCING )
 		curPosition = newPosition;
 }
+
+#ifdef _HUMANHEAD
+soundShaderParms_t* idSoundEmitterLocal::GetSoundParms(idSoundShader* shader, const s_channelType channel)
+{
+    idSoundChannel* chan = &channels[channel];
+
+    return &chan->parms; // jmarshall - I think this is right?
+}
+
+void idSoundEmitterLocal::ModifySound(idSoundShader* shader, const s_channelType channel, const hhSoundShaderParmsModifier& parmModifier)
+{
+    // jmarshall - implement me!
+    idSoundChannel* chan = &channels[channel];
+	if(chan)
+	parmModifier.ModifyParms(chan->parms);
+}
+#endif
+

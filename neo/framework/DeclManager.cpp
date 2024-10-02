@@ -45,6 +45,24 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "framework/DeclManager.h"
 
+#ifdef _RAVEN // quake4 guide
+#include "../raven/bse/BSE.h"
+
+// jmarshall: Quake 4 Guide(template) support
+struct rvGuideTemplate
+{
+    idStr name;
+    idList<idStr> parms;
+    idStr body;
+    bool inlineGuide;
+};
+// jmarshall end
+#endif
+
+#ifdef _HUMANHEAD
+#include "humanhead/framework/declPreyBeam.h"
+#endif
+
 /*
 
 GUIs and script remain separately parsed
@@ -126,7 +144,11 @@ public:
 protected:
 	virtual bool				SetDefaultText( void );
 	virtual const char *		DefaultDefinition( void ) const;
+#ifdef _RAVEN
+		virtual bool			Parse(const char *text, const int textLength, bool precache = false);
+#else
 	virtual bool				Parse( const char *text, const int textLength );
+#endif
 	virtual void				FreeData( void );
 	virtual void				List( void ) const;
 	virtual void				Print( void ) const;
@@ -187,6 +209,13 @@ public:
 	int							numLines;
 
 	idDeclLocal *				decls;
+#ifdef _RAVEN // quake4 guide
+// jmarshall: guide support
+private:
+    idStr						PreprocessGuides(const char* buffer, int length);
+    idStr						PreprocessInlineGuides(const char* buffer, int length);
+// jmarshall end
+#endif
 };
 
 class idDeclManagerLocal : public idDeclManager {
@@ -225,6 +254,73 @@ public:
 	virtual const idMaterial *		FindMaterial( const char *name, bool makeDefault = true );
 	virtual const idDeclSkin *		FindSkin( const char *name, bool makeDefault = true );
 	virtual const idSoundShader *	FindSound( const char *name, bool makeDefault = true );
+#ifdef _RAVEN
+		virtual const idDeclTable *		FindTable( const char *name, bool makeDefault = true );
+		// RAVEN BEGIN
+		// jscott: for new Raven decls
+		virtual const rvDeclMatType *	FindMaterialType( const char *name, bool makeDefault = true );
+		virtual	const rvDeclLipSync *	FindLipSync( const char *name, bool makeDefault = true );
+		virtual	const rvDeclPlayback *	FindPlayback( const char *name, bool makeDefault = true );
+		virtual	const rvDeclEffect *	FindEffect( const char *name, bool makeDefault = true );
+		// RAVEN END
+		// jscott: for new Raven decls
+		virtual const rvDeclMatType *	MaterialTypeByIndex( int index, bool forceParse = true );
+		virtual const rvDeclLipSync *	LipSyncByIndex( int index, bool forceParse = true );
+		virtual	const rvDeclPlayback *	PlaybackByIndex( int index, bool forceParse = true );
+		virtual const rvDeclEffect *	EffectByIndex( int index, bool forceParse = true );
+
+// RAVEN BEGIN
+// jscott: precache any guide (template) files
+    virtual void				ParseGuides(void);
+    virtual	void				ShutdownGuides(void) { }
+    virtual bool				EvaluateGuide(idStr& name, idLexer* src, idStr& definition)
+    {
+        return false;
+    }
+    virtual bool				EvaluateInlineGuide(idStr& name, idStr& definition)
+    {
+        return false;
+    }
+// RAVEN END
+
+// jmarshall
+    void						RegisterDeclSubFolder(const char* folder, const char* extension, idList<idStr>& fileList, bool norecurse = false);
+// jmarshall end
+
+	virtual bool					GetPlaybackData( const rvDeclPlayback *playback, int control, int now, int last, class rvDeclPlaybackData *pbd ) { (void)playback; (void)control; (void)now; (void)last; (void) pbd; return false; }
+	virtual bool					SetPlaybackData(rvDeclPlayback* playback, int now, int control, class rvDeclPlaybackData* pbd) { (void)playback; (void)control; (void)now; (void) pbd; return false; }
+	virtual void					StartPlaybackRecord(rvDeclPlayback* playback) { (void)playback; }
+	virtual bool					FinishPlayback( rvDeclPlayback *playback ) { (void)playback; return false; }
+
+	virtual const idDecl *	FindType( declType_t type, const char *name, bool makeDefault, bool noCaching ) { (void)noCaching; return FindType(type, name, makeDefault); }
+
+	//k: find map def
+	virtual const idDeclEntityDef * FindMapDef(const char *mapName, const char *entityFilter = 0) const {
+		return GetMapDef(mapName, entityFilter);
+	}
+	virtual idDeclEntityDef * FindMapDef(const char *mapName, const char *entityFilter = 0) {
+		return const_cast<idDeclEntityDef *>(GetMapDef(mapName, entityFilter));
+	}
+	virtual void			RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique = false, bool norecurse = false );
+
+	private:
+	const idDeclEntityDef * GetMapDef(const char *mapName, const char *entityFilter) const;
+
+	public:
+		// jmarshall - Quake 4 guide(template) support
+		idList<rvGuideTemplate>		guides;
+		// jmarshall end
+#endif
+#ifdef _HUMANHEAD
+    virtual const hhDeclBeam *		FindBeam( const char *name, bool makeDefault = true );
+    virtual const hhDeclBeam *		BeamByIndex( int index, bool forceParse = true );
+    virtual void					SetInsideLevelLoad(bool b) {
+        inLevelLoad = b;
+    }
+    virtual bool					GetInsideLevelLoad(void) {
+        return inLevelLoad;
+    }
+#endif
 
 	virtual const idMaterial *		MaterialByIndex( int index, bool forceParse = true );
 	virtual const idDeclSkin *		SkinByIndex( int index, bool forceParse = true );
@@ -252,6 +348,10 @@ private:
 	bool						insideLevelLoad;
 
 	static idCVar				decl_show;
+
+#ifdef _HUMANHEAD
+    bool						inLevelLoad;
+#endif
 
 private:
 	static void					ListDecls_f( const idCmdArgs &args );
@@ -627,6 +727,12 @@ int idDeclFile::LoadAndParse() {
 	idDeclLocal *newDecl;
 	bool		reparse;
 
+#ifdef _RAVEN // quake4 guide
+// jmarshall: quake 4 guide support
+    bool		canUseGuides = strstr(fileName, ".mtr");
+// jmarshall end
+#endif
+
 	// load the text
 	common->DPrintf( "...loading '%s'\n", fileName.c_str() );
 	length = fileSystem->ReadFile( fileName, (void **)&buffer, &timestamp );
@@ -635,7 +741,30 @@ int idDeclFile::LoadAndParse() {
 		return 0;
 	}
 
+#ifdef _RAVEN // quake4 guide
+// jmarshall: quake 4 guide support
+    idStr finalPreprocessedBuffer;
+
+    if (!canUseGuides)
+    {
+        finalPreprocessedBuffer = buffer;
+    }
+    else
+    {
+        finalPreprocessedBuffer = PreprocessGuides(buffer, length);
+    }
+
+    //fileSystem->WriteFile(va("generated/%s", fileName.c_str()), finalPreprocessedBuffer.c_str(), finalPreprocessedBuffer.Length());
+
+    //k Mem_Free(buffer);
+// jmarshall end
+#endif
+
+#ifdef _RAVEN
+	if (!src.LoadMemory(finalPreprocessedBuffer.c_str(), finalPreprocessedBuffer.Length(), fileName)) {
+#else
 	if ( !src.LoadMemory( buffer, length, fileName ) ) {
+#endif
 		common->Error( "Couldn't parse %s", fileName.c_str() );
 		Mem_Free( buffer );
 		return 0;
@@ -648,7 +777,11 @@ int idDeclFile::LoadAndParse() {
 
 	src.SetFlags( DECL_LEXER_FLAGS );
 
+#ifdef _RAVEN
+	checksum = MD5_BlockChecksum(finalPreprocessedBuffer.c_str(), finalPreprocessedBuffer.Length());
+#else
 	checksum = MD5_BlockChecksum( buffer, length );
+#endif
 
 	fileSize = length;
 
@@ -759,7 +892,11 @@ int idDeclFile::LoadAndParse() {
 			newDecl->textSource = NULL;
 		}
 
+#ifdef _RAVEN
+		newDecl->SetTextLocal(finalPreprocessedBuffer.c_str() + startMarker, size);
+#else
 		newDecl->SetTextLocal( buffer + startMarker, size );
+#endif
 		newDecl->sourceFile = this;
 		newDecl->sourceTextOffset = startMarker;
 		newDecl->sourceTextLength = size;
@@ -810,12 +947,22 @@ void idDeclManagerLocal::Init( void ) {
 
 	checksum = 0;
 
+#ifdef _HUMANHEAD
+    inLevelLoad = false;
+#endif
+
 #ifdef USE_COMPRESSED_DECLS
 	SetupHuffman();
 #endif
 
 #ifdef GET_HUFFMAN_FREQUENCIES
 	ClearHuffmanFrequencies();
+#endif
+
+#ifdef _RAVEN // quake4 guide
+// jmarshall - template(guide) Support
+    ParseGuides();
+// jmarshall end
 #endif
 
 	// decls used throughout the engine
@@ -834,9 +981,36 @@ void idDeclManagerLocal::Init( void ) {
 	RegisterDeclType( "video",				DECL_VIDEO,			idDeclAllocator<idDeclVideo> );
 	RegisterDeclType( "audio",				DECL_AUDIO,			idDeclAllocator<idDeclAudio> );
 
+#ifdef _RAVEN // quake4 new decl
+// jmarshall: Raven Decl Support
+    RegisterDeclType(  "materialType",		DECL_MATERIALTYPE,  idDeclAllocator<rvDeclMatType>);
+    RegisterDeclType(  "lipSync",			DECL_LIPSYNC,		idDeclAllocator<rvDeclLipSync>);
+    RegisterDeclType(  "playback",			DECL_PLAYBACK,		idDeclAllocator<rvDeclPlayback>);
+    RegisterDeclType(	"effect",			DECL_EFFECT,		idDeclAllocator<rvDeclEffect>);
+    RegisterDeclType(	"playerModel",		DECL_PLAYER_MODEL, idDeclAllocator<rvDeclPlayerModel>);
+// jmarshall end
+#endif
+
+#ifdef _HUMANHEAD
+    RegisterDeclType(	"beam",			DECL_BEAM,		idDeclAllocator<hhDeclBeam>);
+#endif
+
 	RegisterDeclFolder( "materials",		".mtr",				DECL_MATERIAL );
 	RegisterDeclFolder( "skins",			".skin",			DECL_SKIN );
 	RegisterDeclFolder( "sound",			".sndshd",			DECL_SOUND );
+
+#ifdef _RAVEN // quake4 new decl
+// jmarshall: Raven Decl Support
+    RegisterDeclFolder("materials/types",	".mtt",				DECL_MATERIALTYPE);
+    RegisterDeclFolder("lipsync",			".lipsync",			DECL_LIPSYNC);
+    RegisterDeclFolder("playbacks",			".playback",		DECL_PLAYBACK);
+    RegisterDeclFolder("effects",			".fx",				DECL_EFFECT);
+// jmarshall end
+#endif
+
+#ifdef _HUMANHEAD
+    RegisterDeclFolder("beams",			".beam",				DECL_BEAM);
+#endif
 
 	// add console commands
 	cmdSystem->AddCommand( "listDecls", ListDecls_f, CMD_FL_SYSTEM, "lists all decls" );
@@ -875,6 +1049,8 @@ void idDeclManagerLocal::Init( void ) {
 	cmdSystem->AddCommand( "printAudio", idPrintDecls_f<DECL_AUDIO>, CMD_FL_SYSTEM, "prints an Video", idCmdSystem::ArgCompletion_Decl<DECL_AUDIO> );
 
 	cmdSystem->AddCommand( "listHuffmanFrequencies", ListHuffmanFrequencies_f, CMD_FL_SYSTEM, "lists decl text character frequencies" );
+
+	common->Printf("------------------------------\n");
 }
 
 /*
@@ -987,7 +1163,11 @@ void idDeclManagerLocal::RegisterDeclType( const char *typeName, declType_t type
 idDeclManagerLocal::RegisterDeclFolder
 ===================
 */
-void idDeclManagerLocal::RegisterDeclFolder( const char *folder, const char *extension, declType_t defaultType ) {
+void idDeclManagerLocal::RegisterDeclFolder( const char *folder, const char *extension, declType_t defaultType ) 
+{
+#ifdef _RAVEN
+	RegisterDeclFolderWrapper(folder, extension, defaultType, false, false);
+#else
 	int i, j;
 	idStr fileName;
 	idDeclFolder *declFolder;
@@ -1033,6 +1213,7 @@ void idDeclManagerLocal::RegisterDeclFolder( const char *folder, const char *ext
 	}
 
 	fileSystem->FreeFileList( fileList );
+#endif
 }
 
 /*
@@ -2113,7 +2294,12 @@ const char *idDeclLocal::DefaultDefinition() const {
 idDeclLocal::Parse
 =================
 */
-bool idDeclLocal::Parse( const char *text, const int textLength ) {
+#ifdef _RAVEN
+bool idDeclLocal::Parse(const char *text, const int textLength, bool noCaching)
+#else
+bool idDeclLocal::Parse(const char *text, const int textLength)
+#endif
+{
 	idLexer src;
 
 	src.LoadMemory( text, textLength, GetFileName(), GetLineNum() );
@@ -2243,3 +2429,430 @@ idDeclLocal::EverReferenced
 bool idDeclLocal::EverReferenced( void ) const {
 	return everReferenced;
 }
+
+#ifdef _RAVEN // quake4 guide
+/*
+================
+idDeclFile::PreprocessGuides
+================
+*/
+//karin: helper struct
+struct rvGuidePlaceholder
+{
+	// [start, end)
+	int start; // include
+	int end; // exclude
+	idStr replaceStr;
+
+	rvGuidePlaceholder(int start = 0, int end = 0, const idStr &str = idStr())
+		: start(start),
+		end(end),
+		replaceStr(str)
+	{ }
+	void ReplaceSpace(idStr &str)
+	{
+		for(int m = start; m < end; m++)
+		{
+			if(!isspace(str[m])) //karin: keep raw format for debug
+				str[m] = ' ';
+		}
+	}
+	int Replace(int offset, idStr &toStr)
+	{
+		int length = end - start;
+		int newLength = replaceStr.Length();
+		idStr front = toStr.Left(start + offset);
+		idStr back = toStr.Right(toStr.Length() - end - offset);
+		toStr = front + replaceStr + back;
+		return newLength - length;
+	}
+};
+struct rvGuidePlaceholderList : public idList<rvGuidePlaceholder>
+{
+	void ReplaceSpace(idStr &str)
+	{
+		for(int i = 0; i < Num(); i++)
+			this->operator[](i).ReplaceSpace(str);
+	}
+	void Replace(idStr &str)
+	{
+		int offset = 0;
+		for(int i = 0; i < Num(); i++)
+		{
+			offset += this->operator[](i).Replace(offset, str);
+		}
+	}
+};
+
+idStr idDeclFile::PreprocessGuides(const char* text, int textLength)
+{
+    idLexer src;
+    idToken	token, token2;
+
+    idStr finalBuffer = "";
+
+    src.LoadMemory(text, textLength, "", 0);
+    src.SetFlags(DECL_LEXER_FLAGS);
+	rvGuidePlaceholderList guideRanges; //karin: record a pair of read guide characters offset: start, end, characters in range will be replaced ' '
+
+    while (1)
+    {
+        if (!src.ReadToken(&token))
+        {
+            break;
+        }
+
+        if (token == "guide")
+        {
+			int range_start = src.GetFileOffset() - 5; //karin: record range start before next `ReadToken`
+            idToken name;
+            idStr newDecl;
+            rvGuideTemplate*guide = NULL;
+
+            src.ReadToken(&name);
+            src.ReadToken(&token);
+
+            for (int i = 0; i < declManagerLocal.guides.Num(); i++)
+            {
+                if (declManagerLocal.guides[i].name == token)
+                {
+                    guide = &declManagerLocal.guides[i];
+                    break;
+                }
+            }
+
+            if (guide == NULL)
+            {
+                common->FatalError("Failed to find guide '%s'\n", token.c_str());
+            }
+
+            newDecl = name;
+            newDecl += "\n";
+            newDecl += guide->body;
+
+            src.ExpectTokenString("(");
+            for (int i = 0; i < guide->parms.Num(); i++ )
+            {
+                src.ReadToken(&token);
+                newDecl.Replace(guide->parms[i].c_str(), token);
+            }
+            src.ExpectTokenString(")");
+
+            newDecl += "\n";
+
+            finalBuffer += newDecl;
+			int range_end = src.GetFileOffset(); //karin: record range end after last `ReadToken`
+			guideRanges.Append(rvGuidePlaceholder(range_start, range_end));
+        }
+    }
+
+	//karin: replace all old guide source to space
+	idStr oldText(text);
+	guideRanges.ReplaceSpace(oldText);
+    finalBuffer += oldText;
+
+    //finalBuffer.Replace("inlineGuide", "// inlineGuide"); // todo support me, corpse burn
+    //finalBuffer.Replace("guide", "// guide");
+    return PreprocessInlineGuides(finalBuffer.c_str(), finalBuffer.Length());
+}
+
+idStr idDeclFile::PreprocessInlineGuides(const char* text, int textLength)
+{
+    idLexer src;
+    idToken	token, token2;
+
+    idStr finalBuffer(text);
+
+    src.LoadMemory(text, textLength, "", 0);
+    src.SetFlags(DECL_LEXER_FLAGS);
+	rvGuidePlaceholderList guideRanges; //karin: record a pair of read guide characters offset: start, end, characters in range will be replaced to new source
+
+    while (1)
+    {
+        if (!src.ReadToken(&token))
+        {
+            break;
+        }
+
+        if (!idStr::Icmp(token, "inlineGuide"))
+        {
+			int range_start = src.GetFileOffset() - 11; //karin: record range start before next `ReadToken`
+            idStr newDecl;
+            rvGuideTemplate*guide = NULL;
+
+            src.ReadToken(&token);
+
+            for (int i = 0; i < declManagerLocal.guides.Num(); i++)
+            {
+                if (declManagerLocal.guides[i].name == token)
+                {
+                    guide = &declManagerLocal.guides[i];
+                    break;
+                }
+            }
+
+            if (guide == NULL)
+            {
+                common->FatalError("Failed to find inlineGuide '%s'\n", token.c_str());
+            }
+
+            newDecl = guide->body;
+
+            src.ExpectTokenString("(");
+            for (int i = 0; i < guide->parms.Num(); i++ )
+            {
+                src.ReadToken(&token);
+                newDecl.Replace(guide->parms[i].c_str(), token);
+            }
+            src.ExpectTokenString(")");
+
+			int range_end = src.GetFileOffset(); //karin: record range end after last `ReadToken`
+			guideRanges.Append(rvGuidePlaceholder(range_start, range_end, newDecl));
+        }
+    }
+
+	//karin: replace all old inline guide source to new source
+	guideRanges.Replace(finalBuffer);
+
+    return finalBuffer;
+}
+
+// RAVEN BEGIN
+// jscott: for new Raven decls
+const rvDeclMatType* idDeclManagerLocal::FindMaterialType(const char* name, bool makeDefault) {
+	return static_cast<const rvDeclMatType*>(FindType(DECL_MATERIALTYPE, name, makeDefault));
+}
+
+const rvDeclLipSync* idDeclManagerLocal::FindLipSync(const char* name, bool makeDefault) {
+	return static_cast<const rvDeclLipSync*>(FindType(DECL_LIPSYNC, name, makeDefault));
+}
+
+const rvDeclPlayback* idDeclManagerLocal::FindPlayback(const char* name, bool makeDefault) {
+	return static_cast<const rvDeclPlayback*>(FindType(DECL_PLAYBACK, name, makeDefault));
+}
+const rvDeclEffect* idDeclManagerLocal::FindEffect(const char* name, bool makeDefault) {
+	return static_cast<const rvDeclEffect*>(FindType(DECL_EFFECT, name, makeDefault));
+}
+
+const rvDeclMatType* idDeclManagerLocal::MaterialTypeByIndex(int index, bool forceParse) {
+	return static_cast<const rvDeclMatType*>(DeclByIndex(DECL_MATERIALTYPE, index, forceParse));
+}
+
+const rvDeclLipSync* idDeclManagerLocal::LipSyncByIndex(int index, bool forceParse) {
+	return static_cast<const rvDeclLipSync*>(DeclByIndex(DECL_LIPSYNC, index, forceParse));
+}
+
+const rvDeclPlayback* idDeclManagerLocal::PlaybackByIndex(int index, bool forceParse) {
+	return static_cast<const rvDeclPlayback*>(DeclByIndex(DECL_PLAYBACK, index, forceParse));
+}
+
+const rvDeclEffect* idDeclManagerLocal::EffectByIndex(int index, bool forceParse) {
+	return static_cast<const rvDeclEffect*>(DeclByIndex(DECL_EFFECT, index, forceParse));
+}
+
+const idDeclTable* idDeclManagerLocal::FindTable(const char* name, bool makeDefault) {
+	return static_cast<const idDeclTable*>(FindType(DECL_TABLE, name, makeDefault));
+}
+
+/*
+===================
+RegisterDeclSubFolder
+===================
+*/
+// jmarshall
+void idDeclManagerLocal::RegisterDeclSubFolder(const char* folder, const char* extension, idList<idStr>& fileList, bool norecurse)
+{
+    // Find all
+    {
+        idFileList* list = fileSystem->ListFiles(folder, extension, true);
+
+        for (int d = 0; d < list->GetNumFiles(); d++)
+        {
+            fileList.Append(va("%s/%s", folder, list->GetFile(d)));
+        }
+
+        fileSystem->FreeFileList(list);
+    }
+
+	if(!norecurse)
+	{
+		idFileList* dirList = fileSystem->ListFiles(folder, "/", true);
+		for (int i = 0; i < dirList->GetNumFiles(); i++)
+		{
+			idStr dir = va("%s/%s", folder, dirList->GetFile(i));
+			RegisterDeclSubFolder(dir, extension, fileList);
+		}
+
+		fileSystem->FreeFileList(dirList);
+	}
+}
+// jmarshall end
+
+// jmarshall: Quake 4 Guide Support
+/*
+=========================
+idDeclManagerLocal::ParseGuides
+=========================
+*/
+void idDeclManagerLocal::ParseGuides(void) {
+	idFileList* fileList = fileSystem->ListFiles("guides", ".guide");
+
+	common->Printf("Parsing Guides...\n");
+
+	for (int i = 0; i < fileList->GetNumFiles(); i++)
+	{
+		idLexer src;
+		idToken	token;
+		idStr fileName = fileList->GetList()[i];
+
+		src.LoadFile(va("guides/%s", fileName.c_str()));
+		src.SetFlags(DECL_LEXER_FLAGS);
+
+		while (!src.EndOfFile())
+		{
+			src.ReadToken(&token);
+
+			if (token.Length() <= 0)
+				break;
+
+			if (token == "guide" || token == "inlineGuide")
+			{
+				rvGuideTemplate guide;
+
+				if (token == "inlineGuide")
+				{
+					guide.inlineGuide = true;
+				}
+				else
+				{
+					guide.inlineGuide = false;
+				}
+
+				src.ReadToken(&token);
+				guide.name = token;
+
+				src.ExpectTokenString("(");
+
+				while (!src.EndOfFile())
+				{
+					src.ReadToken(&token);
+
+					if (token == ")")
+					{
+						break;
+					}
+
+					guide.parms.Append(token);
+				}
+
+				src.ParseBracedSection(guide.body);
+				if(guide.inlineGuide) //karin: inline guide remove start/end braces
+				{
+					guide.body.StripTrailingWhitespace();
+					guide.body.StripLeadingOnce("{");
+					guide.body.StripTrailingOnce("}");
+				}
+
+				guides.Append(guide);
+			}
+			else
+			{
+				src.Error("Unexpected token in guide %s\n", token.c_str());
+			}
+		}
+	}
+
+	common->Printf("Found %d guides...\n", guides.Num());
+
+	fileSystem->FreeFileList(fileList);
+}
+
+// jmarshall end
+
+//k: find map def
+const idDeclEntityDef * idDeclManagerLocal::GetMapDef(const char *mapName, const char *entityFilter) const
+{
+	//const char *entityFilter = cvarSystem->GetCVarString("si_entityFilter");
+	idStr fullMapName(mapName);
+	if(entityFilter && entityFilter[0]) //k: game/map_entityFilter. e.g. game/process1 first
+	{
+		fullMapName += "_";
+		fullMapName += entityFilter;
+	}
+	// find mapDef
+	const idDecl *mapDecl = declManager->FindType(DECL_MAPDEF, fullMapName, false);
+	if(!mapDecl) // find by origin way
+		mapDecl = declManager->FindType(DECL_MAPDEF, mapName, false);
+
+	const idDeclEntityDef *mapDef = static_cast<const idDeclEntityDef *>(mapDecl);
+	return mapDef;
+}
+
+void idDeclManagerLocal::RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique, bool norecurse )
+{
+	(void)unique;
+
+	int i, j;
+	idStr fileName;
+	idDeclFolder *declFolder;
+    idList<idStr> fileList;
+	idDeclFile *df;
+
+	// check whether this folder / extension combination already exists
+	for (i = 0; i < declFolders.Num(); i++) {
+		if (declFolders[i]->folder.Icmp(folder) == 0 && declFolders[i]->extension.Icmp(extension) == 0) {
+			break;
+		}
+	}
+
+	if (i < declFolders.Num()) {
+		declFolder = declFolders[i];
+	} else {
+		declFolder = new idDeclFolder;
+		declFolder->folder = folder;
+		declFolder->extension = extension;
+		declFolder->defaultType = defaultType;
+		declFolders.Append(declFolder);
+	}
+
+	// scan for decl files
+// jmarshall - decls subfolders
+    RegisterDeclSubFolder(declFolder->folder, declFolder->extension, fileList, norecurse);
+// jmarshall end
+
+	// load and parse decl files
+    for ( i = 0; i < fileList.Num(); i++ )
+	{
+        fileName = fileList[i];
+
+		// check whether this file has already been loaded
+		for (j = 0; j < loadedFiles.Num(); j++) {
+			if (fileName.Icmp(loadedFiles[j]->fileName) == 0) {
+				break;
+			}
+		}
+
+		if (j < loadedFiles.Num()) {
+			df = loadedFiles[j];
+		} else {
+			df = new idDeclFile(fileName, defaultType);
+			loadedFiles.Append(df);
+		}
+
+		df->LoadAndParse();
+	}
+}
+
+#endif
+
+#ifdef _HUMANHEAD
+const hhDeclBeam *		idDeclManagerLocal::FindBeam( const char *name, bool makeDefault )
+{
+	return static_cast<const hhDeclBeam*>(FindType(DECL_BEAM, name, makeDefault));
+}
+
+const hhDeclBeam *		idDeclManagerLocal::BeamByIndex( int index, bool forceParse )
+{
+	return static_cast<const hhDeclBeam*>(DeclByIndex(DECL_BEAM, index, forceParse));
+}
+#endif

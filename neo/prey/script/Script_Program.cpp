@@ -5,6 +5,7 @@
 #pragma hdrstop
 
 #include "../Game_local.h"
+#include "../../idlib/hashing/MD4.h"
 
 //#define _HH_GLOBAL_COUNTER //HUMANHEAD rww
 

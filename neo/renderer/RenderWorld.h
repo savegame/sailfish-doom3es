@@ -47,7 +47,13 @@ class idRenderModel;
 */
 
 #define PROC_FILE_EXT				"proc"
+
+#ifdef _RAVEN // quake4 proc file
+#define PROC_FILE_ID					"PROC"
+#define PROC_FILEVERSION				"4" // jmarshall: changed to string. 
+#else
 #define	PROC_FILE_ID				"mapProcFile003"
+#endif
 
 // shader parms
 #ifdef _HUMANHEAD
@@ -128,8 +134,120 @@ typedef struct hhBeamNodes_s {
 // END HUMANHEAD
 #endif
 
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jscott: for effect brightness
+const int SHADERPARM_BRIGHTNESS		= 6;	// for the overall brightness of effects
+// RAVEN END
+
+// RAVEN BEGIN
+// dluetscher: added a default value for light detail levels
+#define DEFAULT_LIGHT_DETAIL_LEVEL	10.f
+// RAVEN END 
+
+// RAVEN BEGIN
+// AReis: Render flags.
+enum
+{
+	RF_NORMAL					= 0,
+	// Let the renderer know its in a editor of sorts.
+	RF_IS_EDITOR				= BIT( 0 ),
+	// Viewdef is fullscreen and is 2d (mostly for main menu)
+	RF_IS_FULLSCREEN_2D			= BIT( 1 ),
+	// Don't draw the GUI, just the world.
+	RF_NO_GUI					= BIT( 2 ),
+	// Only draw the GUI, not the world.
+	RF_GUI_ONLY					= BIT( 3 ),
+// RAVEN BEGIN
+// dluetscher: added render flag to denote that penumbra map rendering is desired 
+	RF_PENUMBRA_MAP				= BIT( 4 ),
+// dluetscher: added render flag that defers the command buffer submission of render 
+//			   commands until the first non-deferred render command (with the exception of 
+//			   certain render commands like RC_DRAW_PENUMBRA_MAPS - which ignores deferred
+//			   render commands and lets them get submitted past)
+	RF_DEFER_COMMAND_SUBMIT		= BIT( 5 ),
+	// this is a portal sky view
+	RF_PORTAL_SKY				= BIT( 6 ),
+	// this the primary view - when this is rendered, we then know we can capture the screen buffer
+	RF_PRIMARY_VIEW				= BIT( 7 ),
+// RAVEN END
+};
+
+// RAVEN END
+
+#endif
+
 typedef bool(*deferredEntityCallback_t)( renderEntity_s *, const renderView_s * );
 
+#ifdef _RAVEN // particle
+// RAVEN BEGIN
+// jscott: for handling of effects
+typedef struct renderEffect_s {
+
+	const idDecl			*declEffect;
+
+	float					startTime;
+	int						suppressSurfaceInViewID;
+	int						allowSurfaceInViewID;
+	int						groupID;
+
+	idVec3					origin;
+	idMat3					axis;
+
+	idVec3					gravity;
+	idVec3					endOrigin;
+
+	float					attenuation;
+	bool					hasEndOrigin;
+	bool					loop;						// effect is looping
+	bool					ambient;					// effect is from an entity
+	bool					inConnectedArea;
+	int						weaponDepthHackInViewID;	// squash depth range so view weapons don't poke into walls
+	float					modelDepthHack;	
+
+	int						referenceSoundHandle;		// for shader sound tables, allowing effects to vary with sounds
+
+	float					shaderParms[ MAX_ENTITY_SHADER_PARMS ];	// can be used in any way by shader or model generation
+} renderEffect_t;
+// RAVEN END
+
+// RAVEN BEGIN
+// jscott: effect handling in the renderer
+class rvRenderEffect {
+public:
+	virtual					~rvRenderEffect(void) {}
+};
+// RAVEN END
+
+class rvRenderEffectLocal : rvRenderEffect
+{
+public:
+	renderEffect_s parms;
+	//renderEffect_s gameParms;
+	int gameTime;
+	int serviceTime;
+	bool newEffect;
+	bool expired;
+	class rvBSE* effect;
+	idBounds referenceBounds;
+	float modelMatrix[16];
+	class idRenderWorldLocal* world;
+	int lastModifiedFrameNum;
+	bool archived;
+	int viewCount;
+	//viewEffect_s* viewEffect;
+	int visibleCount;
+	//areaReference_s* effectRefs;
+	//cullLink_t* cullLinks;
+	bool remove;
+	int updateFramenum;
+	idLinkList<rvRenderEffectLocal> node;
+	int index;
+	idRenderModel* dynamicModel;
+	int dynamicModelFrameCount;
+};
+// RAVEN END
+#endif
 
 typedef struct renderEntity_s {
 	idRenderModel *			hModel;				// this can only be null if callback is set
@@ -177,7 +295,30 @@ typedef struct renderEntity_s {
 	const idMaterial *		customShader;			// if non-0, all surfaces will use this
 	const idMaterial *		referenceShader;		// used so flares can reference the proper light shader
 	const idDeclSkin *		customSkin;				// 0 for no remappings
+#ifdef _RAVEN
+// RAVEN BEGIN
+	int						referenceSoundHandle;	// for shader sound tables, allowing effects to vary with sounds
+// RAVEN END	
+// RAVEN BEGIN
+// bdube: hiding surfaces
+	// Mask of surfaces which should be suppresesed when rendering the entity
+	int						suppressSurfaceMask;
+// RAVEN END	
+// RAVEN BEGIN
+// ddynerman: Wolf LOD code
+	float					shadowLODDistance;
+	int						suppressLOD;
+// RAVEN END
+// RAVEN BEGIN
+// bdube: overlay shaders
+	const idMaterial *		overlayShader;			// overlays the model on top of itself with this shader (originally for powerups)
+
+// bdube: weapon depth hack only in a given view id
+	int						weaponDepthHackInViewID;// squash depth range so view weapons don't poke into walls
+// RAVEN END
+#else
 	class idSoundEmitter *	referenceSound;			// for shader sound tables, allowing effects to vary with sounds
+#endif
 	float					shaderParms[ MAX_ENTITY_SHADER_PARMS ];	// can be used in any way by shader or model generation
 
 	// networking: see WriteGUIToSnapshot / ReadGUIFromSnapshot
@@ -274,7 +415,19 @@ typedef struct renderLight_s {
 
 	const idMaterial *		shader;				// NULL = either lights/defaultPointLight or lights/defaultProjectedLight
 	float					shaderParms[MAX_ENTITY_SHADER_PARMS];		// can be used in any way by shader
+#ifdef _RAVEN
+// RAVEN BEGIN
+// dluetscher: added a min light detail level setting that describes when this light is visible
+	float					detailLevel;
+// ddynerman: no dynamic shadows - allows dmap to create optimized static shadows, but prevents dynamic shadows
+	bool					noDynamicShadows;
+// RAVEN END
+	bool					globalLight;		// Whether this is a global light or not.
+
+	int						referenceSoundHandle;		// for shader sound tables, allowing effects to vary with sounds
+#else
 	idSoundEmitter *		referenceSound;		// for shader sound tables, allowing effects to vary with sounds
+#endif
 } renderLight_t;
 
 
@@ -334,6 +487,12 @@ typedef struct modelTrace_s {
 	const idMaterial *		material;			// material of hit surface
 	const renderEntity_t *	entity;				// render entity that was hit
 	int						jointNumber;		// md5 joint nearest to the hit triangle
+#ifdef _RAVEN // quake4 trace
+// RAVEN BEGIN
+// jscott: added block
+	const rvDeclMatType *	materialType;
+// RAVEN END
+#endif
 } modelTrace_t;
 
 
@@ -425,6 +584,26 @@ public:
 	// ensures that any parms accessed (such as time) are properly set.
 	virtual void			SetRenderView( const renderView_t *renderView ) = 0;
 
+#ifdef _RAVEN
+// jscott: for portal skies
+	virtual bool			HasSkybox( int areaNum ) = 0;
+	virtual void			FindVisibleAreas( idVec3 origin, int areaNum, bool *visibleAreas ) = 0;
+
+// jscott: handling of effects
+	virtual qhandle_t		AddEffectDef( const renderEffect_t *reffect, int time ) = 0;
+	virtual bool			UpdateEffectDef( qhandle_t effectHandle, const renderEffect_t *reffect, int time ) = 0;
+	virtual void			StopEffectDef( qhandle_t effectHandle ) = 0;
+	virtual const class rvRenderEffectLocal* GetEffectDef( qhandle_t effectHandle ) const = 0;
+	virtual void			FreeEffectDef( qhandle_t effectHandle ) = 0;
+	virtual bool			EffectDefHasSound( const renderEffect_s *reffect ) = 0;
+
+	virtual void			DebugClear(int time) = 0;		// a time of 0 will clear all lines and text
+// jscott: want to be able to specify depth test
+	virtual void			DebugBounds(const idVec4& color, const idBounds& bounds, const idVec3& org, const int lifetime, bool depthTest) = 0;
+	virtual void			DebugFOV(const idVec4& color, const idVec3& origin, const idVec3& dir, float farDot, float farDist, float nearDot = 1.0f, float nearDist = 0.0f, float alpha = 0.3f, int lifetime = 0) = 0;
+		virtual void			RenderScene(const renderView_t *renderView, int renderFlags/* = RF_NORMAL */) = 0;
+// AReis: Modified RenderScene() signature to include renderFlags variable.
+#endif
 	// rendering a scene may actually render multiple subviews for mirrors and portals, and
 	// may render composite textures for gui console screens and light projections
 	// It would also be acceptable to render a scene multiple times, for "rear view mirrors", etc
@@ -474,6 +653,9 @@ public:
 	// fraction location of the trace on the gui surface, or -1,-1 if no hit.
 	// This doesn't do any occlusion testing, simply ignoring non-gui surfaces.
 	// start / end are in global world coordinates.
+#if defined(_HUMANHEAD) && defined(_HH_RENDERDEMO_HACKS)
+	virtual guiPoint_t		GuiTrace( qhandle_t entityHandle, const idVec3 start, const idVec3 end, int interactiveMask ) const = 0;	// HUMANHEAD pdm: added interactiveMask
+#endif
 	virtual guiPoint_t		GuiTrace( qhandle_t entityHandle, const idVec3 start, const idVec3 end ) const = 0;
 
 	// Traces vs the render model, possibly instantiating a dynamic version, and returns true if something was hit

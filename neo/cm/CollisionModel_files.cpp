@@ -495,6 +495,24 @@ bool idCollisionModelManagerLocal::ParseCollisionModel( idLexer *src ) {
 	// parse the file
 	src->ExpectTokenType( TT_STRING, 0, &token );
 	model->name = token;
+
+#ifdef _RAVEN // quake4 cm file
+	if (token.Cmpn(PROC_CLIPMODEL_STRING_PRFX, strlen(PROC_CLIPMODEL_STRING_PRFX)) == 0) {
+		numInlinedProcClipModels++;
+	}
+#endif
+#ifdef _HUMANHEAD
+	//HUMANHEAD rww
+#if _HH_INLINED_PROC_CLIPMODELS
+	if (anyInlinedProcClipMats) {
+		if (token.Cmpn(PROC_CLIPMODEL_STRING_PRFX, strlen(PROC_CLIPMODEL_STRING_PRFX)) == 0) {
+			numInlinedProcClipModels++;
+		}
+	}
+#endif
+	//HUMANHEAD END
+#endif
+
 	src->ExpectTokenString( "{" );
 	while ( !src->CheckTokenString( "}" ) ) {
 

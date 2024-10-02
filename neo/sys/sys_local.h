@@ -64,6 +64,13 @@ public:
 
 	virtual void			OpenURL( const char *url, bool quit );
 	virtual void			StartProcess( const char *exeName, bool quit );
+#ifdef _RAVEN
+	virtual int				Milliseconds(void) { return Sys_Milliseconds(); }
+#endif
+#ifdef _HUMANHEAD
+	virtual bool			LGLCD_Valid(void) { return false; }
+	virtual void			LGLCD_UploadImage(unsigned char *pixels, int w, int h, bool highPriority, bool flipColor) { (void)pixels; (void)w; (void)h; (void)highPriority; (void)flipColor; }
+#endif
 };
 
 #endif /* !__SYS_LOCAL__ */

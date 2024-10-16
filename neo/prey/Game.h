@@ -1,8 +1,23 @@
 // Copyright (C) 2004 Id Software, Inc.
 //
 
-#ifndef __GAME_H__
-#define __GAME_H__
+#ifndef __GAME_H_PREY__
+#define __GAME_H_PREY__
+
+#include "idlib/BitMsg.h"
+#include "idlib/Dict.h"
+#include "idlib/containers/StrList.h"
+#include "framework/UsercmdGen.h"
+#include "renderer/RenderWorld.h"
+#include "sound/sound.h"
+
+class idAASFileManager;
+class idCollisionModelManager;
+class idRenderSystem;
+class idRenderModelManager;
+class idUserInterface;
+class idUserInterfaceManager;
+class idNetworkSystem;
 
 /*
 ===============================================================================
@@ -170,7 +185,7 @@ public:
 	virtual void				ClearTimePlayed( void ) = 0;
 };
 
-extern idGame *					game;
+extern idGame * game;
 
 
 /*
@@ -339,4 +354,4 @@ extern "C" {
 typedef gameExport_t * (*GetGameAPI_t)( gameImport_t *import );
 }
 
-#endif /* !__GAME_H__ */
+#endif /* !__GAME_H_PREY__ */

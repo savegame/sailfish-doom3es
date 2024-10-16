@@ -29,6 +29,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "sys/platform.h"
 #include "idlib/Lib.h"
 #include "framework/Common.h"
+#include "framework/File.h"
+#include "framework/FileSystem.h"
 
 #include "idlib/Parser.h"
 
@@ -46,7 +48,14 @@ idParser::SetBaseFolder
 ================
 */
 void idParser::SetBaseFolder( const char *path) {
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jsinger: changed to be Lexer instead of idLexer so that we have the ability to read binary files
+	Lexer::SetBaseFolder(path);
+// RAVEN END
+#else
 	idLexer::SetBaseFolder(path);
+#endif
 }
 
 /*
@@ -954,6 +963,12 @@ int idParser::Directive_include( void ) {
 		// try relative to the current file
 		path = scriptstack->GetFileName();
 		path.StripFilename();
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jscott: avoid the leading slash
+		if( path.Length() )
+// RAVEN END
+#endif
 		path += "/";
 		path += token;
 		if ( !script->LoadFile( path, OSPath ) ) {
@@ -2970,7 +2985,13 @@ void idParser::SetIncludePath( const char *path ) {
 	// add trailing path seperator
 	if (idParser::includepath[idParser::includepath.Length()-1] != '\\' &&
 		idParser::includepath[idParser::includepath.Length()-1] != '/') {
+#ifdef _RAVEN // change \ to /
+// RAVEN BEGIN
+        idParser::includepath += "/";
+// RAVEN END
+#else
 		idParser::includepath += PATHSEPERATOR_STR;
+#endif
 	}
 }
 
@@ -3039,6 +3060,12 @@ int idParser::LoadFile( const char *filename, bool OSPath ) {
 		idParser::definehash = (define_t **) Mem_ClearedAlloc( DEFINEHASHSIZE * sizeof(define_t *) );
 		idParser::AddGlobalDefinesToSource();
 	}
+
+#ifdef _HUMANHEAD // for test
+	idFile *f = fileSystem->OpenFileWrite( va("gen/%s", filename) );
+	f->WriteString(script->buffer);
+	fileSystem->CloseFile(f);
+#endif
 	return true;
 }
 
@@ -3250,3 +3277,72 @@ idParser::~idParser
 idParser::~idParser( void ) {
 	idParser::FreeSource( false );
 }
+
+#ifdef _RAVEN
+/*
+================
+idParser::Parse1DMatrixLegacy
+================
+*/
+int idParser::Parse1DMatrixLegacy(int x, float* m)
+{
+	int i;
+
+	if (!idParser::ExpectTokenString("{"))
+	{
+		return false;
+	}
+
+	for (i = 0; i < x; i++)
+	{
+		m[i] = idParser::ParseFloat();
+
+		if (i < x - 1)
+		{
+			if (!idParser::ExpectTokenString(","))
+			{
+				return false;
+			}
+		}
+	}
+
+	if (!idParser::ExpectTokenString("}"))
+	{
+		return false;
+	}
+	return true;
+}
+
+/*
+================
+idParser::Parse1DMatrix
+================
+*/
+int idParser::Parse1DMatrix( int x, float *m, bool ravenMatrix) {
+	int i;
+
+	if (!ravenMatrix)
+	{
+		if (!idParser::ExpectTokenString("(")) {
+			return false;
+		}
+	}
+
+	for ( i = 0; i < x; i++ ) {
+		m[i] = idParser::ParseFloat();
+
+		if (ravenMatrix && i < x - 1) {
+			idParser::ExpectTokenString(",");
+		}
+	}
+
+	if (!ravenMatrix)
+	{
+		if (!idParser::ExpectTokenString(")")) {
+			return false;
+		}
+	}
+	return true;
+}
+#endif
+

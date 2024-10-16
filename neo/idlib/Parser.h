@@ -180,6 +180,13 @@ public:
 	static void		RemoveAllGlobalDefines( void );
 					// set the base folder to load files from
 	static void		SetBaseFolder( const char *path );
+#ifdef _RAVEN
+// jmarshall
+	int				Parse1DMatrixLegacy(int x, float* m);
+// jmarshall end
+	int				Parse1DMatrix( int x, float *m, bool ravenMatrix/* = false //k*/ );
+#endif
+
 
 private:
 	int				loaded;						// set when a source file is loaded from file or memory

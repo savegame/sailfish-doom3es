@@ -1,32 +1,40 @@
-%if "0%{?_harbour}" == "1"
-Name:  harbour-doom3es
-%define firejail_section X-Sailjail
+%if "%{?_game}" == "prey"
+
+Name: ru.sashikknox.prey
+Summary: Prey AuroraOS port by sashikknox
+%global binary_name prey
+%define build_options -DPREY=ON -DSFOS_PACKAGE_NAME=%{name}
+%define _GAMENAME Prey4Aurora
+%define dir_suffix "_prey"
 %else
-Name:  ru.sashikknox.doom3es
+
+Name: ru.sashikknox.doom3es
+Summary: Doom3 AuroraOS port by sashikknox
+%global binary_name doom3es
+%define build_options ""
+%define _GAMENAME DIII4Aurora
+%define dir_suffix ""
+%define _game doom3es
+%endif
+
 %define firejail_section X-Application
-%if "0%{?_oldaurora}" 
-%define xauroraapp "\#[X-Aurora-Application]\#IconMode=Crop"
-%else
 %define xauroraapp ""
-%endif
-%endif
 
-%define build_dir $RPM_BUILD_ROOT/build
-
-%ifarch armv7hl
-%global build_dir build_armv7hl
-%else 
-    %ifarch aarch64
-        %global build_dir build_aarch64
-    %else
-        %global build_dir build_x86_64
-    %endif
-%endif
+# %define build_dir $RPM_BUILD_ROOT/build
+# 
+# %ifarch armv7hl
+# %global build_dir build_armv7hl%{dir_suffix}
+# %else 
+#     %ifarch aarch64
+#         %global build_dir build_aarch64%{dir_suffix}
+#     %else
+#         %global build_dir build_x86_64%{dir_suffix}
+#     %endif
+# %endif
 
 %define __requires_exclude ^libopenal\\.so.*$
 %define __provides_exclude_from ^%{_datadir}/%{name}/lib/.*\\.so.*$
 
-Summary:    Doom3 AuroraOS/SailfishOS port by sashikknox
 Version:    1.5.3
 Release:    1
 Group:      Amusements/Games
@@ -65,39 +73,41 @@ Doom3 AuroraOS port by sashikknox. Doom 3 made by Id software.
 sed "s/__APPNAME__/%{name}/g" sailfish-doom3es.desktop.in>%{name}.desktop
 sed -i "s/__FIREJAIL__/%{firejail_section}/g" %{name}.desktop
 sed -i "s/__X_AURORA_APP__/%{xauroraapp}/g" %{name}.desktop
+sed -i "s/__GAME__/%{binary_name}/g" %{name}.desktop
+sed -i "s/__GAME_NAME__/%{_GAMENAME}/g" %{name}.desktop
 sed -i "s/#/\n/g" %{name}.desktop
 # << build pre
 
-%cmake \
-    -Bbuild_libsdl_%{_arch} \
-    -DSDL_PULSEAUDIO=OFF \
-    -DSDL_RPATH=OFF \
-    -DSDL_STATIC=ON \
-    -DSDL_SHARED=OFF \
-    -DSDL_WAYLAND=ON \
-    -DSDL_X11=OFF \
-    -DSDL_DBUS=ON \
-    -DSDL_WAYLAND_LIBDECOR=OFF \
-    libsdl
+# % cmake \
+#     -Bbuild_libsdl_%{_arch} \
+#     -DSDL_PULSEAUDIO=OFF \
+#     -DSDL_RPATH=OFF \
+#     -DSDL_STATIC=ON \
+#     -DSDL_SHARED=OFF \
+#     -DSDL_WAYLAND=ON \
+#     -DSDL_X11=OFF \
+#     -DSDL_DBUS=ON \
+#     -DSDL_WAYLAND_LIBDECOR=OFF \
+#     libsdl
+# 
+# pushd build_libsdl_%{_arch}
+# % make_build -j`nproc`
+# rsync -avP include-config-/SDL2/* include/SDL2/
+# popd
 
-pushd build_libsdl_%{_arch}
-%make_build -j`nproc`
-rsync -avP include-config-/SDL2/* include/SDL2/
-popd
-
 %cmake \
-    -B%{build_dir} \
+    -Bbuild_%{_arch}%{dir_suffix} \
     -DCMAKE_BUILD_TYPE=Release \
     -DSFOS_PACKAGE_NAME="%{name}" \
     -DSAILFISHOS=ON \
     -DSDL2_INCLUDE_DIR="`pwd`/build_libsdl_%{_arch}/include/SDL2" \
     -DSDL2_LIBRARY="`pwd`/build_libsdl_%{_arch}/libSDL2.a" \
-    .
+    %{build_options} .
 
-pushd %{build_dir}
+pushd build_%{_arch}%{dir_suffix}
 %make_build 
 strip neo/base.so
-strip neo/d3xp.so
+[ -f neo/d3xp.so ] && strip neo/d3xp.so
 strip neo/%{name}
 popd
 # >> build post
@@ -107,7 +117,7 @@ popd
 rm -rf %{buildroot}
 # >> install pre
 # << install pre
-pushd %{build_dir}
+pushd build_%{_arch}%{dir_suffix}
 %make_install
 popd
 # >> install post

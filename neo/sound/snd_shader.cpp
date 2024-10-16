@@ -44,6 +44,16 @@ void idSoundShader::Init( void ) {
 	numLeadins = 0;
 	leadinVolume = 0;
 	altSound = NULL;
+#ifdef _RAVEN
+	noShakes = false;
+	frequentlyUsed = false;
+	minFrequencyShift = 0;
+	maxFrequencyShift = 0;
+	playCount = 0;
+#endif
+#ifdef _HUMANHEAD
+	parms.subIndex = -1;
+#endif
 }
 
 /*
@@ -116,7 +126,11 @@ DefaultDefinition
 const char *idSoundShader::DefaultDefinition() const {
 	return
 		"{\n"
+#ifdef _RAVEN //k: default is sound/_default.ogg
+	        "\t"	"sound/_default.wav\n"
+#else
 	"\t"	"_default.wav\n"
+#endif
 		"}";
 }
 
@@ -127,7 +141,12 @@ idSoundShader::Parse
   this is called by the declManager
 ===============
 */
-bool idSoundShader::Parse( const char *text, const int textLength ) {
+#ifdef _RAVEN
+bool idSoundShader::Parse(const char *text, const int textLength, bool noCaching)
+#else
+bool idSoundShader::Parse(const char *text, const int textLength)
+#endif
+{
 	idLexer	src;
 
 	src.LoadMemory( text, textLength, GetFileName(), GetLineNum() );
@@ -159,6 +178,9 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 	parms.shakes = 0;
 	parms.soundShaderFlags = 0;
 	parms.soundClass = 0;
+#ifdef _HUMANHEAD
+	parms.subIndex = -1;
+#endif
 
 	speakerMask = 0;
 	altSound = NULL;
@@ -195,11 +217,58 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 		// mindistance
 		else if ( !token.Icmp( "mindistance" ) ) {
 			parms.minDistance = src.ParseFloat();
+#ifdef _RAVEN // scale
+			// jmarshall: scale to doom 3 distance
+			parms.minDistance /= 100.0f;
+#endif
 		}
 		// maxdistance
 		else if ( !token.Icmp( "maxdistance" ) ) {
 			parms.maxDistance = src.ParseFloat();
+#ifdef _RAVEN // scale
+			// jmarshall: scale to doom 3 distance
+			parms.maxDistance /= 100.0f;
+#endif
 		}
+#ifdef _RAVEN // quake4 snd file
+		else if (!token.Icmp("frequencyshift")) {
+			minFrequencyShift = src.ParseFloat();
+			src.ExpectTokenString(",");
+			maxFrequencyShift = src.ParseFloat();
+		}
+		else if (!token.Icmp("volumeDb")) {
+			float db = src.ParseFloat();
+			parms.volume = idMath::dBToScale(db);
+		}
+		else if (!token.Icmp("useDoppler")) {
+			parms.soundShaderFlags |= SSF_USEDOPPLER;
+		}
+		else if (!token.Icmp("noRandomStart")) {
+			parms.soundShaderFlags |= SSF_NO_RANDOMSTART;
+		}
+		else if (!token.Icmp("voForPlayer")) {
+			parms.soundShaderFlags |= SSF_VO_FOR_PLAYER;
+		}
+		else if (!token.Icmp("causeRumble")) {
+			parms.soundShaderFlags |= SSF_CAUSE_RUMBLE;
+		}
+		else if (!token.Icmp("center")) {
+			parms.soundShaderFlags |= SSF_CENTER;
+		}
+		else if (!token.Icmp("frequentlyUsed")) {
+			frequentlyUsed = true;
+		}
+		else if (!token.Icmp("shakeData"))
+		{
+			src.ExpectAnyToken(&token);
+			src.ExpectAnyToken(&token);
+		}
+		else if (!token.Icmp("no_shakes"))
+		{
+			parms.shakes = 0.0f;
+			noShakes = true;
+		}
+#endif
 		// shakes screen
 		else if ( !token.Icmp( "shakes" ) ) {
 			src.ExpectAnyToken( &token );
@@ -254,7 +323,23 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 		}
 		// soundClass
 		else if ( !token.Icmp( "soundClass" ) ) {
+#ifdef _HUMANHEAD //k: macros in prey
+			idToken t;
+			src.ReadToken(&t);
+			if(!idStr::Icmp(t, "SC_MUSIC"))
+				parms.soundClass = 4;
+			else if(!idStr::Icmp(t, "SC_VOICE"))
+				parms.soundClass = 3;
+			else if(!idStr::Icmp(t, "SC_VOICEDUCKER"))
+				parms.soundClass = 1;
+			else if(!idStr::Icmp(t, "SC_SPIRIT"))
+				parms.soundClass = 2;
+			else
+				parms.soundClass = atoi(t.c_str());
+#else
 			parms.soundClass = src.ParseInt();
+#endif
+
 			if ( parms.soundClass < 0 || parms.soundClass >= SOUND_MAX_CLASSES ) {
 				src.Warning( "SoundClass out of range" );
 				return false;
@@ -320,6 +405,33 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 			// no longer loading sounds on demand
 			//onDemand = true;
 		}
+#ifdef _HUMANHEAD
+		else if (!token.Icmp("bleep")) {
+			src.SkipRestOfLine();
+		}
+		else if (!token.IcmpPrefix("subtitle")) { //k: subtitle1	2.0	"#str_30000"
+			idStr subChn = token.Right(token.Length() - strlen("subtitle"));
+			int subChannel = atoi(subChn.c_str());
+			float subTime = src.ParseFloat();
+			idToken subText;
+			src.ReadToken(&subText);
+			int subIndex = soundSystemLocal.GetSubtitleIndex(GetName());
+			soundSystemLocal.SetSubtitleData(subIndex, subChannel, subText.c_str(), subTime, subChannel);
+			parms.subIndex = subIndex;
+
+			src.SkipRestOfLine();
+		}
+		else if (!token.Icmp("omniwhenclose")) {
+			parms.soundShaderFlags |= SSF_OMNI_WHEN_CLOSE;
+		}
+		else if (!token.Icmp("jawflap")) {
+		}
+		else if (!token.Icmp("NOREVERB")) {
+			parms.soundShaderFlags |= SSF_NOREVERB;
+		}
+		else if (!token.Icmp("noportalflow")) {
+		}
+#endif
 
 		// the wave files
 		else if ( !token.Icmp( "leadin" ) ) {
@@ -332,6 +444,88 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 				leadins[ numLeadins ] = soundSystemLocal.soundCache->FindSound( token.c_str(), onDemand );
 				numLeadins++;
 			}
+#ifdef _RAVEN //k: quake4 snd get sound file
+		}
+		else if(token.IcmpPrefixPath("sound/") == 0)
+		{
+			// add to the wav list
+			if (soundSystemLocal.soundCache && numEntries < maxSamples) {
+				//k: if no extension, default set .wav
+				const bool hasExt = token.Find(".wav", false) != -1 || token.Find(".ogg", false) != -1;
+
+				token.BackSlashesToSlashes();
+				idStr lang = cvarSystem->GetCVarString("sys_lang");
+
+				//k: if speak/radio words
+				if (token.Find("sound/vo/", false) >= 0) {
+					idStr work = token;
+					work.ToLower();
+					work.StripLeading("sound/vo/");
+					work = va("sound/vo_%s/%s", lang.c_str(), work.c_str()); //k: in Quake4, is `sound/vo_{long}/...`, but in DOOM3, is `sound/vo/{lang}/...`
+
+					if(!hasExt)
+						work.SetFileExtension(".wav");
+
+					if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+						token = work;
+						parms.shakes = 0.0f; //k: set bo shakes, otherelse make a warning
+					} else {
+						// also try to find it with the .ogg extension
+						work.SetFileExtension(".ogg");
+
+						if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+							token = work;
+							parms.shakes = 0.0f; //k: set bo shakes, otherelse make a warning
+						}
+					}
+				}
+				else // other sound
+				{
+					idStr work = token;
+					work.ToLower();
+
+					if(!hasExt)
+						work.SetFileExtension(".wav");
+
+					if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+						token = work;
+						parms.shakes = 0.0f; //k: set bo shakes, otherelse make a warning
+					} else {
+						// also try to find it with the .ogg extension
+						work.SetFileExtension(".ogg");
+
+						if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+							token = work;
+							parms.shakes = 0.0f; //k: set bo shakes, otherelse make a warning
+						}
+					}
+				}
+				entries[ numEntries ] = soundSystemLocal.soundCache->FindSound(token.c_str(), onDemand);
+				numEntries++;
+			}
+		} else if (token.Find(".wav", false) != -1 || token.Find(".ogg", false) != -1) {
+			// add to the wav list
+			if (soundSystemLocal.soundCache && numEntries < maxSamples) {
+				token.BackSlashesToSlashes();
+
+				idStr work = token;
+				work.ToLower();
+
+				if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+					token = work;
+				} else {
+					// also try to find it with the .ogg extension
+					work.SetFileExtension(".ogg");
+
+					if (fileSystem->ReadFile(work, NULL, NULL) > 0) {
+						token = work;
+					}
+				}
+
+				entries[ numEntries ] = soundSystemLocal.soundCache->FindSound(token.c_str(), onDemand);
+				numEntries++;
+			}
+#else
 		} else if ( token.Find( ".wav", false ) != -1 || token.Find( ".ogg", false ) != -1 ) {
 			// add to the wav list
 			if ( soundSystemLocal.soundCache && numEntries < maxSamples ) {
@@ -355,6 +549,7 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 				entries[ numEntries ] = soundSystemLocal.soundCache->FindSound( token.c_str(), onDemand );
 				numEntries++;
 			}
+#endif
 		} else {
 			src.Warning( "unknown token '%s'", token.c_str() );
 			return false;

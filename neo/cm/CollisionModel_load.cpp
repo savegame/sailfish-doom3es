@@ -50,7 +50,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/Model.h"
 #include "renderer/ModelManager.h"
 #include "renderer/RenderWorld.h"
-
+#if DEATHWALK_AUTOLOAD
+#include "framework/Session.h"
+#endif
 #include "cm/CollisionModel_local.h"
 
 idCollisionModelManagerLocal	collisionModelManagerLocal;
@@ -603,7 +605,12 @@ void idCollisionModelManagerLocal::FreeTree_r( cm_model_t *model, cm_node_t *hea
 idCollisionModelManagerLocal::FreeModel
 ================
 */
-void idCollisionModelManagerLocal::FreeModel( cm_model_t *model ) {
+#ifdef _RAVEN
+void idCollisionModelManagerLocal::FreeModel_memory(cm_model_t *model)
+#else
+void idCollisionModelManagerLocal::FreeModel(cm_model_t *model)
+#endif
+{
 	cm_polygonRefBlock_t *polygonRefBlock, *nextPolygonRefBlock;
 	cm_brushRefBlock_t *brushRefBlock, *nextBrushRefBlock;
 	cm_nodeBlock_t *nodeBlock, *nextNodeBlock;
@@ -1036,6 +1043,7 @@ void idCollisionModelManagerLocal::SetupTrmModelStructure( void ) {
 	model->edges = (cm_edge_t *) Mem_ClearedAlloc( model->maxEdges * sizeof(cm_edge_t) );
 	// create a material for the trace model polygons
 	trmMaterial = declManager->FindMaterial( "_tracemodel", false );
+
 	if ( !trmMaterial ) {
 		common->FatalError( "_tracemodel material not found" );
 	}
@@ -1188,29 +1196,23 @@ int idCollisionModelManagerLocal::R_ChoppedAwayByProcBSP( int nodeNum, idFixedWi
 		dist = node->plane.Normal() * origin + node->plane[3];
 		if ( dist > radius ) {
 			res = SIDE_FRONT;
-		}
-		else if ( dist < -radius ) {
+		} else if ( dist < -radius ) {
 			res = SIDE_BACK;
-		}
-		else {
+		} else {
 			res = w->Split( &back, node->plane, CHOP_EPSILON );
 		}
 		if ( res == SIDE_FRONT ) {
 			nodeNum = node->children[0];
-		}
-		else if ( res == SIDE_BACK ) {
+		} else if ( res == SIDE_BACK ) {
 			nodeNum = node->children[1];
-		}
-		else if ( res == SIDE_ON ) {
+		} else if ( res == SIDE_ON ) {
 			// continue with the side the winding faces
 			if ( node->plane.Normal() * normal > 0.0f ) {
 				nodeNum = node->children[0];
-			}
-			else {
+			} else {
 				nodeNum = node->children[1];
 			}
-		}
-		else {
+		} else {
 			// if either node is not solid
 			if ( node->children[0] < 0 || node->children[1] < 0 ) {
 				return false;
@@ -1552,20 +1554,17 @@ void idCollisionModelManagerLocal::ReplacePolygons( cm_model_t *model, cm_node_t
 				if ( linked ) {
 					if ( lastpref ) {
 						lastpref->next = nextpref;
-					}
-					else {
+					} else {
 						node->polygons = nextpref;
 					}
 					FreePolygonReference( pref );
 					model->numPolygonRefs--;
-				}
-				else {
+				} else {
 					pref->p = newp;
 					linked = true;
 					lastpref = pref;
 				}
-			}
-			else {
+			} else {
 				lastpref = pref;
 			}
 		}
@@ -1722,8 +1721,7 @@ cm_polygon_t *idCollisionModelManagerLocal::TryMergePolygons( cm_model_t *model,
 		for ( i = p1AfterShare + (!keep2); i <= p1BeforeShare - (!keep1); i++ ) {
 			newEdges[newNumEdges++] = p1->edges[i];
 		}
-	}
-	else {
+	} else {
 		for ( i = p1AfterShare + (!keep2); i < p1->numEdges; i++ ) {
 			newEdges[newNumEdges++] = p1->edges[i];
 		}
@@ -1738,8 +1736,7 @@ cm_polygon_t *idCollisionModelManagerLocal::TryMergePolygons( cm_model_t *model,
 		for ( i = p2AfterShare + (!keep1); i <= p2BeforeShare - (!keep2); i++ ) {
 			newEdges[newNumEdges++] = p2->edges[i];
 		}
-	}
-	else {
+	} else {
 		for ( i = p2AfterShare + (!keep1); i < p2->numEdges; i++ ) {
 			newEdges[newNumEdges++] = p2->edges[i];
 		}
@@ -2635,8 +2632,7 @@ int idCollisionModelManagerLocal::GetEdge( cm_model_t *model, const idVec3 &v1, 
 
 	if ( v1num != -1 ) {
 		found = 1;
-	}
-	else {
+	} else {
 		found = GetVertex( model, v1, &v1num );
 	}
 	found &= GetVertex( model, v2, &v2num );
@@ -2847,8 +2843,7 @@ void idCollisionModelManagerLocal::CreatePatchPolygons( cm_model_t *model, idSur
 
 					PolygonFromWinding( model, &w, plane, material, -primitiveNum );
 					continue;
-				}
-				else {
+				} else {
 					// create one of the triangles
 					w.Clear();
 					w += mesh[v1].xyz;
@@ -3145,8 +3140,7 @@ void idCollisionModelManagerLocal::RemapEdges( cm_node_t *node, int *edgeRemap )
 			for ( i = 0; i < p->numEdges; i++ ) {
 				if ( p->edges[i] < 0 ) {
 					p->edges[i] = -edgeRemap[ abs(p->edges[i]) ];
-				}
-				else {
+				} else {
 					p->edges[i] = edgeRemap[ p->edges[i] ];
 				}
 			}
@@ -3285,7 +3279,16 @@ cm_model_t *idCollisionModelManagerLocal::LoadRenderModel( const char *fileName 
 
 	// only load ASE and LWO models
 	idStr( fileName ).ExtractFileExtension( extension );
-	if ( ( extension.Icmp( "ase" ) != 0 ) && ( extension.Icmp( "lwo" ) != 0 ) && ( extension.Icmp( "ma" ) != 0 ) ) {
+
+	if ((extension.Icmp("ase") != 0) && (extension.Icmp("lwo") != 0) && (extension.Icmp("ma") != 0)
+#ifdef _MODEL_OBJ
+		&& (extension.Icmp("obj") != 0)
+#endif
+#ifdef _MODEL_DAE
+		&& (extension.Icmp("dae") != 0)
+#endif
+	)
+	{
 		return NULL;
 	}
 
@@ -3403,8 +3406,7 @@ cm_model_t *idCollisionModelManagerLocal::CollisionModelForMapEntity( const idMa
 			if ( !numModels ) {
 				// first model is always the world
 				name = "worldMap";
-			}
-			else {
+			} else {
 				name = "unnamed inline model";
 			}
 		}
@@ -3485,15 +3487,29 @@ cmHandle_t idCollisionModelManagerLocal::FindModel( const char *name ) {
 
 	// check if this model is already loaded
 	for ( i = 0; i < numModels; i++ ) {
-		if ( !models[i]->name.Icmp( name ) ) {
+#ifdef _RAVEN
+		if (!static_cast<cm_model_t *>(models[i])->name.Icmp(name))
+#else
+		if (!models[i]->name.Icmp(name))
+#endif
+		{
 			break;
 		}
 	}
 	// if the model is already loaded
 	if ( i < numModels ) {
+#ifdef _RAVEN
+		return models[i];
+#else
 		return i;
+#endif
 	}
+
+#ifdef _RAVEN
+	return NULL;
+#else
 	return -1;
+#endif
 }
 
 /*
@@ -3524,7 +3540,10 @@ idCollisionModelManagerLocal::AccumulateModelInfo
 void idCollisionModelManagerLocal::AccumulateModelInfo( cm_model_t *model ) {
 	int i;
 
+#if !defined(_RAVEN)
 	memset( model, 0, sizeof( *model ) );
+#endif
+
 	// accumulate statistics of all loaded models
 	for ( i = 0; i < numModels; i++ ) {
 		model->numVertices += models[i]->numVertices;
@@ -3549,7 +3568,12 @@ void idCollisionModelManagerLocal::AccumulateModelInfo( cm_model_t *model ) {
 idCollisionModelManagerLocal::ModelInfo
 ================
 */
-void idCollisionModelManagerLocal::ModelInfo( cmHandle_t model ) {
+#ifdef _RAVEN
+void idCollisionModelManagerLocal::ModelInfo(int model)
+#else
+void idCollisionModelManagerLocal::ModelInfo(cmHandle_t model)
+#endif
+{
 	cm_model_t modelInfo;
 
 	if ( model == -1 ) {
@@ -3751,7 +3775,8 @@ void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile ) {
 	// models
 	maxModels = MAX_SUBMODELS;
 	numModels = 0;
-	models = (cm_model_t **) Mem_ClearedAlloc( (maxModels+1) * sizeof(cm_model_t *) );
+	if (!models)
+		models = (cm_model_t **) Mem_ClearedAlloc( (maxModels+1) * sizeof(cm_model_t *) );
 
 	// setup hash to speed up finding shared vertices and edges
 	SetupHash();
@@ -3776,12 +3801,17 @@ void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile ) {
 idCollisionModelManagerLocal::GetModelName
 ===================
 */
-const char *idCollisionModelManagerLocal::GetModelName( cmHandle_t model ) const {
+const char *idCollisionModelManagerLocal::GetModelName(cmHandle_t model) const
+{
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetName() : "";
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
-		common->Printf( "idCollisionModelManagerLocal::GetModelBounds: invalid model handle\n" );
+		common->Printf( "idCollisionModelManagerLocal::GetModelName: invalid model handle\n" );
 		return "";
 	}
 	return models[model]->name.c_str();
+#endif
 }
 
 /*
@@ -3791,6 +3821,9 @@ idCollisionModelManagerLocal::GetModelBounds
 */
 bool idCollisionModelManagerLocal::GetModelBounds( cmHandle_t model, idBounds &bounds ) const {
 
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetBounds(bounds) : false;
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelBounds: invalid model handle\n" );
 		return false;
@@ -3798,6 +3831,7 @@ bool idCollisionModelManagerLocal::GetModelBounds( cmHandle_t model, idBounds &b
 
 	bounds = models[model]->bounds;
 	return true;
+#endif
 }
 
 /*
@@ -3805,7 +3839,11 @@ bool idCollisionModelManagerLocal::GetModelBounds( cmHandle_t model, idBounds &b
 idCollisionModelManagerLocal::GetModelContents
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelContents( cmHandle_t model, int &contents ) const {
+bool idCollisionModelManagerLocal::GetModelContents(cmHandle_t model, int &contents) const
+{
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetContents(contents) : false;
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelContents: invalid model handle\n" );
 		return false;
@@ -3814,6 +3852,7 @@ bool idCollisionModelManagerLocal::GetModelContents( cmHandle_t model, int &cont
 	contents = models[model]->contents;
 
 	return true;
+#endif
 }
 
 /*
@@ -3821,7 +3860,11 @@ bool idCollisionModelManagerLocal::GetModelContents( cmHandle_t model, int &cont
 idCollisionModelManagerLocal::GetModelVertex
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelVertex( cmHandle_t model, int vertexNum, idVec3 &vertex ) const {
+bool idCollisionModelManagerLocal::GetModelVertex(cmHandle_t model, int vertexNum, idVec3 &vertex) const
+{
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetVertex(vertexNum, vertex) : false;
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelVertex: invalid model handle\n" );
 		return false;
@@ -3835,6 +3878,7 @@ bool idCollisionModelManagerLocal::GetModelVertex( cmHandle_t model, int vertexN
 	vertex = models[model]->vertices[vertexNum].p;
 
 	return true;
+#endif
 }
 
 /*
@@ -3842,13 +3886,18 @@ bool idCollisionModelManagerLocal::GetModelVertex( cmHandle_t model, int vertexN
 idCollisionModelManagerLocal::GetModelEdge
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelEdge( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const {
+bool idCollisionModelManagerLocal::GetModelEdge(cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end) const
+{
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetEdge(edgeNum, start, end) : false;
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelEdge: invalid model handle\n" );
 		return false;
 	}
 
 	edgeNum = abs( edgeNum );
+
 	if ( edgeNum >= models[model]->numEdges ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelEdge: invalid edge number\n" );
 		return false;
@@ -3858,6 +3907,7 @@ bool idCollisionModelManagerLocal::GetModelEdge( cmHandle_t model, int edgeNum, 
 	end = models[model]->vertices[models[model]->edges[edgeNum].vertexNum[1]].p;
 
 	return true;
+#endif
 }
 
 /*
@@ -3869,6 +3919,9 @@ bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygo
 	int i, edgeNum;
 	cm_polygon_t *poly;
 
+#ifdef _RAVEN
+	return model ? static_cast<cm_model_t *>(model)->GetPolygon(polygonNum, winding) : false;
+#else
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelPolygon: invalid model handle\n" );
 		return false;
@@ -3882,6 +3935,7 @@ bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygo
 	}
 
 	return true;
+#endif
 }
 
 /*
@@ -3889,11 +3943,22 @@ bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygo
 idCollisionModelManagerLocal::LoadModel
 ==================
 */
-cmHandle_t idCollisionModelManagerLocal::LoadModel( const char *modelName, const bool precache ) {
+cmHandle_t idCollisionModelManagerLocal::LoadModel(const char *modelName, const bool precache)
+{
+#ifdef _RAVEN
+	cmHandle_t handle;
+#else
 	int handle;
+#endif
 
 	handle = FindModel( modelName );
-	if ( handle >= 0 ) {
+
+#ifdef _RAVEN
+	if (handle)
+#else
+	if (handle >= 0)
+#endif
+	{
 		return handle;
 	}
 
@@ -3905,7 +3970,13 @@ cmHandle_t idCollisionModelManagerLocal::LoadModel( const char *modelName, const
 	// try to load a .cm file
 	if ( LoadCollisionModelFile( modelName, 0 ) ) {
 		handle = FindModel( modelName );
-		if ( handle >= 0 ) {
+
+#ifdef _RAVEN
+		if (handle)
+#else
+		if (handle >= 0)
+#endif
+		{
 			return handle;
 		} else {
 			common->Warning( "idCollisionModelManagerLocal::LoadModel: collision file for '%s' contains different model", modelName );
@@ -3917,11 +3988,19 @@ cmHandle_t idCollisionModelManagerLocal::LoadModel( const char *modelName, const
 		return 0;
 	}
 
+#ifdef SAILFISHOS
+	if (!models)
+		models = (cm_model_t **) Mem_ClearedAlloc( (maxModels+1) * sizeof(cm_model_t *) );
+#endif
 	// try to load a .ASE or .LWO model and convert it to a collision model
 	models[numModels] = LoadRenderModel( modelName );
 	if ( models[numModels] != NULL ) {
 		numModels++;
+#ifdef _RAVEN
+		return models[numModels - 1];
+#else
 		return ( numModels - 1 );
+#endif
 	}
 
 	return 0;
@@ -4078,7 +4157,11 @@ bool idCollisionModelManagerLocal::TrmFromModel( const char *modelName, idTraceM
 		return false;
 	}
 
+#ifdef _RAVEN
+	return TrmFromModel(static_cast<cm_model_t *>(handle), trm);
+#else
 	return TrmFromModel( models[ handle ], trm );
+#endif
 }
 
 #ifdef _RAVEN

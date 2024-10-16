@@ -191,7 +191,11 @@ idCVar r_showTextureVectors( "r_showTextureVectors", "0", CVAR_RENDERER | CVAR_F
 idCVar r_lockSurfaces( "r_lockSurfaces", "0", CVAR_RENDERER | CVAR_BOOL, "allow moving the view point without changing the composition of the scene, including culling" );
 idCVar r_useEntityCallbacks( "r_useEntityCallbacks", "1", CVAR_RENDERER | CVAR_BOOL, "if 0, issue the callback immediately at update time, rather than defering" );
 
+#ifdef _RAVEN //k: r_showSkel diff with renderer
+idCVar r_showSkel( "r_showSkel", "0", CVAR_RENDERER | CVAR_INTEGER, "draw the skeleton when model animates, 1 = draw model with skeleton, 2 = draw skeleton only, 3 = draw joints only", 0, 3, idCmdSystem::ArgCompletion_Integer<0,3> );
+#else
 idCVar r_showSkel( "r_showSkel", "0", CVAR_RENDERER | CVAR_INTEGER, "draw the skeleton when model animates, 1 = draw model with skeleton, 2 = draw skeleton only", 0, 2, idCmdSystem::ArgCompletion_Integer<0,2> );
+#endif
 idCVar r_jointNameScale( "r_jointNameScale", "0.02", CVAR_RENDERER | CVAR_FLOAT, "size of joint names when r_showskel is set to 1" );
 idCVar r_jointNameOffset( "r_jointNameOffset", "0.5", CVAR_RENDERER | CVAR_FLOAT, "offset of joint names when r_showskel is set to 1" );
 
@@ -218,6 +222,11 @@ idCVar r_useETC1("r_useETC1", "0", CVAR_RENDERER | CVAR_BOOL, "use ETC1 compress
 idCVar r_useETC1Cache("r_useETC1cache", "0", CVAR_RENDERER | CVAR_BOOL, "cache ETC1 data");
 
 idCVar r_maxFps( "r_maxFps", "0", CVAR_RENDERER | CVAR_INTEGER, "Limit maximum FPS. 0 = unlimited" );
+
+#ifdef _RAVEN
+idCVar r_skipSky("r_skipSky", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "Dark sky");
+idCVar r_aspectRatio("r_aspectRatio",			"-1",			CVAR_RENDERER | CVAR_INTEGER | CVAR_ARCHIVE, "aspect ratio of view:\n0 = 4:3\n1 = 16:9\n2 = 16:10\n-1 = auto (guess from resolution)", -1, 2);
+#endif
 
 // define qgl functions
 #define QGLPROC(name, rettype, args) rettype (GL_APIENTRYP q##name) args;
@@ -1548,6 +1557,11 @@ void idRenderSystemLocal::Clear( void ) {
 	guiModel = NULL;
 	demoGuiModel = NULL;
 	takingScreenshot = false;
+#ifdef _HUMANHEAD
+	scopeView = false;
+	shuttleView = false;
+	lastRenderSkybox = -1;
+#endif
 }
 
 /*
@@ -1598,6 +1612,11 @@ void idRenderSystemLocal::Init( void ) {
 	identitySpace.modelMatrix[2*4+2] = 1.0f;
 
 	origWidth = origHeight = 0; // DG: for resetting width/height in EndFrame()
+
+#ifdef _HUMANHEAD
+	scopeView = false;
+	shuttleView = false;
+#endif
 }
 
 /*

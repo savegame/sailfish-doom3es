@@ -255,9 +255,17 @@ bool Sys_GetPath(sysPath_t type, idStr &path) {
 		s = getenv("XDG_CONFIG_HOME");
 #ifdef SAILFISHOS
 		if (s)
+#	ifdef _HUMANHEAD
+			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/prey", s);
+#	else
 			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/doom3es", s);
+#	endif
 		else // TODO: should be orgname plus appname ru.sashikknox/doom3es
+#	ifdef _HUMANHEAD
+			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/prey", getenv("HOME"));
+#	else
 			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/doom3es", getenv("HOME"));
+#	endif
 #else
 		if (s)
 			idStr::snPrintf(buf, sizeof(buf), "%s/dhewm3", s);

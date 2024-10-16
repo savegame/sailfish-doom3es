@@ -1,5 +1,5 @@
 
-#include "../../../idlib/precompiled.h"
+#include "prey_math.h"
 #pragma hdrstop
 
 

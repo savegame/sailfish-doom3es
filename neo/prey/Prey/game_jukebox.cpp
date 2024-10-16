@@ -101,16 +101,16 @@ void hhJukeBox::PlayCurrentTrack() {
 	StopCurrentTrack();
 
 	// In OpenAL, samples that are out of range pause instead of mute so the targetted speakers can get out of sync.
-	if (shader && targets.Num() && !cvarSystem->GetCVarBool("s_useOpenAL")) {
-		for (int ix=0; ix<targets.Num(); ix++) {
-			if (targets[ix].IsValid()) {
-				targets[ix]->StartSoundShader(shader, SND_CHANNEL_VOICE, 0, true, &time);
-			}
-		}
-	}
-	else {
+	// if (shader && targets.Num() && !cvarSystem->GetCVarBool("s_useOpenAL")) {
+	// 	for (int ix=0; ix<targets.Num(); ix++) {
+	// 		if (targets[ix].IsValid()) {
+	// 			targets[ix]->StartSoundShader(shader, SND_CHANNEL_VOICE, 0, true, &time);
+	// 		}
+	// 	}
+	// }
+	// else {
 		StartSound(va("snd_song%d", track), SND_CHANNEL_VOICE, 0, true, &time);
-	}
+	// }
 	UpdateVolume();
 	CancelEvents(&EV_TrackOver);
 	PostEventMS(&EV_TrackOver, time + 500);
@@ -186,16 +186,16 @@ void hhJukeBox::UpdateEntityVolume(idEntity *ent) {
 }
 
 void hhJukeBox::UpdateVolume() {
-	if (targets.Num() && !cvarSystem->GetCVarBool("s_useOpenAL")) {
-		for (int ix=0; ix<targets.Num(); ix++) {
-			if (targets[ix].IsValid()) {
-				UpdateEntityVolume(targets[ix].GetEntity());
-			}
-		}
-	}
-	else {
+	// if (targets.Num() && !cvarSystem->GetCVarBool("s_useOpenAL")) {
+	// 	for (int ix=0; ix<targets.Num(); ix++) {
+	// 		if (targets[ix].IsValid()) {
+	// 			UpdateEntityVolume(targets[ix].GetEntity());
+	// 		}
+	// 	}
+	// }
+	// else {
 		UpdateEntityVolume(this);
-	}
+	// }
 }
 
 void hhJukeBox::Think() {

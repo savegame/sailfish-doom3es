@@ -165,6 +165,17 @@ public:
 	idDemoFile *	readDemo;
 	idDemoFile *	writeDemo;
 	int				renderdemoVersion;
+
+#ifdef _RAVEN
+	idSoundWorld*	menuSoundWorld;			// so the game soundWorld can be muted
+#endif
+#ifdef _HUMANHEAD
+	virtual bool ShouldAppendLevel(void) const = 0;
+	virtual const char * GetDeathwalkMapName(void) const = 0;
+#endif
+#ifdef _MULTITHREAD
+		virtual void UpdateScreen(byte *data, bool outOfSequence) = 0;
+#endif
 };
 
 extern	idSession *	session;

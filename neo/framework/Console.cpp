@@ -410,8 +410,13 @@ Can't be combined with init, because init happens before
 the renderSystem is initialized
 ==============
 */
-void idConsoleLocal::LoadGraphics() {
+void idConsoleLocal::LoadGraphics()
+{
+#ifdef _RAVEN // quake4 bigchar font
+    charSetShader = declManager->FindMaterial( "fonts/english/bigchars" );
+#else
 	charSetShader = declManager->FindMaterial( "textures/bigchars" );
+#endif
 	whiteShader = declManager->FindMaterial( "_white" );
 	consoleShader = declManager->FindMaterial( "console" );
 }
@@ -459,7 +464,11 @@ void idConsoleLocal::Clear() {
 	int		i;
 
 	for ( i = 0 ; i < CON_TEXTSIZE ; i++ ) {
+#ifdef _RAVEN
+		text[i] = (idStr::ColorIndex(C_COLOR_CONSOLE)<<8) | ' ';
+#else
 		text[i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+#endif
 	}
 
 	Bottom();		// go to end
@@ -897,7 +906,11 @@ void idConsoleLocal::Linefeed() {
 	}
 	current++;
 	for ( i = 0; i < LINE_WIDTH; i++ ) {
+#ifdef _RAVEN
+		text[(current%TOTAL_LINES)*LINE_WIDTH+i] = (idStr::ColorIndex(C_COLOR_CONSOLE)<<8) | ' ';
+#else
 		text[(current%TOTAL_LINES)*LINE_WIDTH+i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+#endif
 	}
 }
 
@@ -922,12 +935,20 @@ void idConsoleLocal::Print( const char *txt ) {
 	}
 #endif
 
+#ifdef _RAVEN
+	color = idStr::ColorIndex(C_COLOR_CONSOLE);
+#else
 	color = idStr::ColorIndex( C_COLOR_CYAN );
+#endif
 
 	while ( (c = *(const unsigned char*)txt) != 0 ) {
 		if ( idStr::IsColor( txt ) ) {
 			if ( *(txt+1) == C_COLOR_DEFAULT ) {
+#ifdef _RAVEN
+				color = idStr::ColorIndex(C_COLOR_CONSOLE);
+#else
 				color = idStr::ColorIndex( C_COLOR_CYAN );
+#endif
 			} else {
 				color = idStr::ColorIndex( *(txt+1) );
 			}
@@ -1024,7 +1045,11 @@ void idConsoleLocal::DrawInput() {
 		}
 	}
 
+#ifdef _RAVEN
+	renderSystem->SetColor(idStr::ColorForIndex(C_COLOR_CONSOLE));
+#else
 	renderSystem->SetColor( idStr::ColorForIndex( C_COLOR_CYAN ) );
+#endif
 
 	renderSystem->DrawSmallChar( 1 * SMALLCHAR_WIDTH, y, ']', localConsole.charSetShader );
 
@@ -1124,7 +1149,11 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 
 	// draw the version number
 
+#ifdef _RAVEN
+	renderSystem->SetColor(idStr::ColorForIndex(C_COLOR_CONSOLE));
+#else
 	renderSystem->SetColor( idStr::ColorForIndex( C_COLOR_CYAN ) );
+#endif
 
 	idStr version = va("%s.%i", ENGINE_VERSION, BUILD_NUMBER);
 	i = version.Length();
@@ -1145,7 +1174,12 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 	// draw from the bottom up
 	if ( display != current ) {
 		// draw arrows to show the buffer is backscrolled
+#ifdef _RAVEN
+		renderSystem->SetColor(idStr::ColorForIndex(C_COLOR_CONSOLE));
+#else
 		renderSystem->SetColor( idStr::ColorForIndex( C_COLOR_CYAN ) );
+#endif
+
 		for ( x = 0; x < LINE_WIDTH; x += 4 ) {
 			renderSystem->DrawSmallChar( (x+1)*SMALLCHAR_WIDTH, idMath::FtoiFast( y ), '^', localConsole.charSetShader );
 		}

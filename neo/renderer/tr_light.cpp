@@ -37,6 +37,10 @@ If you have questions concerning this license or the applicable additional terms
 
 static const float CHECK_BOUNDS_EPSILON = 1.0f;
 
+#ifndef __DOOM_DLL__
+#include "prey/Game.h"
+#endif
+
 /*
 ===========================================================================================
 
@@ -44,6 +48,19 @@ VERTEX CACHE GENERATORS
 
 ===========================================================================================
 */
+
+#ifdef _HUMANHEAD
+static ID_INLINE float R_CalcViewAndEntityDistance(const viewDef_t *viewDef, const renderEntity_t *entity)
+{
+	//idVec3 origin = idVec3(space->modelMatrix[12], space->modelMatrix[13], space->modelMatrix[14]);
+	return (viewDef->renderView.vieworg - entity->origin).LengthFast();
+}
+
+static ID_INLINE float R_CalcViewAndLightDistance(const viewDef_t *viewDef, const renderLight_t *light)
+{
+	return (viewDef->renderView.vieworg - light->origin).LengthFast();
+}
+#endif
 
 /*
 ==================
@@ -377,6 +394,16 @@ viewLight_t *R_SetLightDefViewLight( idRenderLightLocal *light ) {
 	// link the view light
 	vLight->next = tr.viewDef->viewLights;
 	tr.viewDef->viewLights = vLight;
+#ifdef _SHADOW_MAPPING
+    memcpy(vLight->baseLightProject, light->baseLightProject, sizeof(light->baseLightProject));
+	memcpy(vLight->inverseBaseLightProject, light->inverseBaseLightProject, sizeof(light->inverseBaseLightProject));
+    vLight->pointLight = light->parms.pointLight;
+    vLight->parallel = light->parms.parallel;
+    vLight->lightCenter = light->parms.lightCenter;
+	vLight->lightRadius = light->parms.lightRadius;
+	vLight->shadowLOD = 0;
+	R_SetupShadowMappingLOD(light, vLight);
+#endif
 
 	light->viewLight = vLight;
 
@@ -570,8 +597,14 @@ void R_LinkLightSurf( const drawSurf_t **link, const srfTriangles_t *tri, const 
 			// FIXME: share with the ambient surface?
 			float *regs = (float *)R_FrameAlloc( shader->GetNumRegisters() * sizeof( float ) );
 			drawSurf->shaderRegisters = regs;
-			shader->EvaluateRegisters(regs, space->entityDef->parms.shaderParms, tr.viewDef,
-			                          space->entityDef->parms.referenceSound);
+#ifdef _HUMANHEAD
+			space->entityDef->parms.shaderParms[SHADERPARM_DISTANCE] = R_CalcViewAndEntityDistance(tr.viewDef, &space->entityDef->parms);
+#endif
+#ifdef _RAVEN //karin: quake4 using handle
+			shader->EvaluateRegisters(regs, space->entityDef->parms.shaderParms, tr.viewDef, space->entityDef->parms.referenceSoundHandle);
+#else
+			shader->EvaluateRegisters(regs, space->entityDef->parms.shaderParms, tr.viewDef, space->entityDef->parms.referenceSound);
+#endif
 		}
 	}
 
@@ -782,7 +815,14 @@ void R_AddLightSurfaces( void ) {
 		// evaluate the light shader registers
 		float *lightRegs =(float *)R_FrameAlloc( lightShader->GetNumRegisters() * sizeof( float ) );
 		vLight->shaderRegisters = lightRegs;
+#ifdef _HUMANHEAD
+		light->parms.shaderParms[SHADERPARM_DISTANCE] = R_CalcViewAndLightDistance(tr.viewDef, &light->parms);
+#endif
+#ifdef _RAVEN //karin: quake4 using handle
+		lightShader->EvaluateRegisters(lightRegs, light->parms.shaderParms, tr.viewDef, light->parms.referenceSoundHandle);
+#else
 		lightShader->EvaluateRegisters( lightRegs, light->parms.shaderParms, tr.viewDef, light->parms.referenceSound );
+#endif
 
 		// if this is a purely additive light and no stage in the light shader evaluates
 		// to a positive light value, we can completely skip the light
@@ -907,9 +947,9 @@ void R_AddLightSurfaces( void ) {
 
 			// if we have been purged, re-upload the shadowVertexes
 			if ( !R_CreatePrivateShadowCache(tri) ) {
-				// skip if we are out of vertex memory
-					continue;
-				}
+			// skip if we are out of vertex memory
+				continue;
+			}
 			if ( !R_CreateIndexCache(tri)) {
 				// skip if we are out of vertex memory
 				continue;
@@ -1122,7 +1162,11 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 			// evaluate the reference shader to find our shader parms
 			const shaderStage_t *pStage;
 
+#ifdef _RAVEN //karin: quake4 using handle
+			renderEntity->referenceShader->EvaluateRegisters(refRegs, renderEntity->shaderParms, tr.viewDef, renderEntity->referenceSoundHandle);
+#else
 			renderEntity->referenceShader->EvaluateRegisters( refRegs, renderEntity->shaderParms, tr.viewDef, renderEntity->referenceSound );
+#endif
 			pStage = renderEntity->referenceShader->GetStage(0);
 
 			memcpy( generatedShaderParms, renderEntity->shaderParms, sizeof( generatedShaderParms ) );
@@ -1143,11 +1187,22 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
+#ifdef _RAVEN
+			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
+#else
 			tr.viewDef->floatTime = game->GetTimeGroupTime( space->entityDef->parms.timeGroup ) * 0.001;
 			tr.viewDef->renderView.time = game->GetTimeGroupTime( space->entityDef->parms.timeGroup );
+#endif
 		}
 
+#ifdef _HUMANHEAD
+		((float *)shaderParms)[SHADERPARM_DISTANCE] = R_CalcViewAndEntityDistance(tr.viewDef, renderEntity);
+#endif
+#ifdef _RAVEN //karin: quake4 using handle
+		shader->EvaluateRegisters(regs, shaderParms, tr.viewDef, renderEntity->referenceSoundHandle);
+#else
 		shader->EvaluateRegisters( regs, shaderParms, tr.viewDef, renderEntity->referenceSound );
+#endif
 
 		if ( space->entityDef && space->entityDef->parms.timeGroup ) {
 			tr.viewDef->floatTime = oldFloatTime;
@@ -1196,8 +1251,12 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 		oldFloatTime = tr.viewDef->floatTime;
 		oldTime = tr.viewDef->renderView.time;
 
+#ifdef _RAVEN
+		tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
+#else
 		tr.viewDef->floatTime = game->GetTimeGroupTime( 1 ) * 0.001;
 		tr.viewDef->renderView.time = game->GetTimeGroupTime( 1 );
+#endif
 
 		idBounds ndcBounds;
 
@@ -1244,6 +1303,11 @@ static void R_AddAmbientDrawsurfs( viewEntity_t *vEntity ) {
 	total = model->NumSurfaces();
 	for ( i = 0 ; i < total ; i++ ) {
 		const modelSurface_t	*surf = model->Surface( i );
+
+#ifdef _RAVEN //k: for ShowSurface/HideSurface, shader mask is not 0 will skip render
+		if(SUPPRESS_SURFACE_MASK_CHECK(def->parms.suppressSurfaceMask, i))
+			continue;
+#endif
 
 		// for debugging, only show a single surface at a time
 		if ( r_singleSurface.GetInteger() >= 0 && i != r_singleSurface.GetInteger() ) {
@@ -1376,14 +1440,20 @@ void R_AddModelSurfaces( void ) {
 		float oldFloatTime = 0.0f;
 		int oldTime = 0;
 
+#if !defined(_RAVEN)
 		game->SelectTimeGroup( vEntity->entityDef->parms.timeGroup );
+#endif
 
 		if ( vEntity->entityDef->parms.timeGroup ) {
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
+#ifdef _RAVEN
+			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
+#else
 			tr.viewDef->floatTime = game->GetTimeGroupTime( vEntity->entityDef->parms.timeGroup ) * 0.001;
 			tr.viewDef->renderView.time = game->GetTimeGroupTime( vEntity->entityDef->parms.timeGroup );
+#endif
 		}
 
 		if ( tr.viewDef->isXraySubview && vEntity->entityDef->parms.xrayIndex == 1 ) {
@@ -1509,3 +1579,30 @@ void R_RemoveUnecessaryViewLights( void ) {
 		}
 	}
 }
+
+#ifdef _RAVEN // particle
+/*
+===============
+R_AddEffectSurfaces
+===============
+*/
+void R_AddEffectSurfaces(void) {
+#if 1 //karin: once
+	static int lastServiceTime = -1;
+	if(tr.frameCount == lastServiceTime)
+		return;
+	lastServiceTime = tr.frameCount;
+#endif
+	idRenderWorldLocal* world = tr.viewDef->renderWorld;
+	rvRenderEffectLocal *effect;
+
+	for (int i = 0; i < world->effectsDef.Num(); i++) {
+		effect = world->effectsDef[i];
+		if (effect == NULL)
+			continue;
+
+		bse->ServiceEffect(effect, MS2SEC(effect->gameTime)/*tr.frameShaderTime*/);
+	}
+}
+#endif
+

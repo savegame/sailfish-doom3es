@@ -129,6 +129,8 @@ unsigned int	com_msgID = -1;
 #ifdef __DOOM_DLL__
 idGame *		game = NULL;
 idGameEdit *	gameEdit = NULL;
+#else 
+#include "prey/Game.h"
 #endif
 
 // writes si_version to the config file - in a kinda obfuscated way
@@ -2747,6 +2749,7 @@ void idCommonLocal::LoadGameDLL( void ) {
 	if ( gameExport.version != GAME_API_VERSION ) {
 		Sys_DLL_Unload( gameDLL );
 		gameDLL = 0;
+		common->Printf("Expect %i, has %i]\n", GAME_API_VERSION, gameExport.version);
 		common->FatalError( "wrong game DLL API version" );
 		return;
 	}

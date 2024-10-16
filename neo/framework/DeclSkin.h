@@ -51,9 +51,16 @@ public:
 	virtual size_t			Size( void ) const;
 	virtual bool			SetDefaultText( void );
 	virtual const char *	DefaultDefinition( void ) const;
+#ifdef _RAVEN
+	virtual bool			Parse(const char *text, const int textLength, bool noCaching = false);
+#else
 	virtual bool			Parse( const char *text, const int textLength );
+#endif
 	virtual void			FreeData( void );
 
+#ifdef _HUMANHEAD
+	virtual //HUMANHEAD: aob - needed so this is added to vtable and callable from DLL
+#endif
 	const idMaterial *		RemapShaderBySkin( const idMaterial *shader ) const;
 
 							// model associations are just for the preview dialog in the editor

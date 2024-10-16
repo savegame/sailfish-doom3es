@@ -49,12 +49,12 @@ If you have questions concerning this license or the applicable additional terms
 
 #if defined(SAILFISHOS)
 // #define GAME_NAME						SAILFISH_APPNAME// appears in errors
-#define GAME_NAME						"ru.sashikknox.doom3es"// appears in errors
+#define GAME_NAME						"ru.sashikknox.prey"// appears in errors
 #else
 #define GAME_NAME						"Prey"			// appears on window titles and errors
 #endif
 
-#define BUILD_STRING "AuroraOS"
+#define BUILD_STRING 					"AuroraOS"
 
 #define	ENGINE_VERSION					"Prey 1.2"		// printed in console
 

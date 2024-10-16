@@ -116,6 +116,48 @@ const int C_COLOR_BLACK				= '9';
 #define S_COLOR_GRAY				"^8"
 #define S_COLOR_BLACK				"^9"
 
+#ifdef _RAVEN
+// RAVEN BEGIN
+// bdube: added
+const int C_COLOR_CONSOLE			= ':';
+// RAVEN END
+
+// bdube: added
+#define S_COLOR_CONSOLE				"^:"
+// ddynerman: team colors
+#define S_COLOR_MARINE				"^c683"
+#define S_COLOR_STROGG				"^c950"
+#define S_COLOR_ALERT				"^c920"
+// ddynerman: MP icons
+#define I_VOICE_ENABLED				"^ivce"
+#define I_VOICE_DISABLED			"^ivcd"
+#define I_FRIEND_ENABLED			"^ifde"
+#define I_FRIEND_DISABLED			"^ifdd"
+#define I_FLAG_MARINE				"^iflm"
+#define I_FLAG_STROGG				"^ifls"
+#define I_READY						"^iyrd"
+#define I_NOT_READY					"^inrd"
+// ddynerman: MP icons
+#define I_VOICE_ENABLED				"^ivce"
+#define I_VOICE_DISABLED			"^ivcd"
+#define I_FRIEND_ENABLED			"^ifde"
+#define I_FRIEND_DISABLED			"^ifdd"
+#define I_FLAG_MARINE				"^iflm"
+#define I_FLAG_STROGG				"^ifls"
+#define I_READY						"^iyrd"
+#define I_NOT_READY					"^inrd"
+
+// RAVEN BEGIN
+// bdube: string escape codes
+#define S_ESCAPE_UNKNOWN			BIT(0)
+#define S_ESCAPE_COLOR				BIT(1)
+#define S_ESCAPE_COLORINDEX			BIT(2)
+#define S_ESCAPE_ICON				BIT(3)
+#define S_ESCAPE_COMMAND			BIT(4)
+#define	S_ESCAPE_ALL				( S_ESCAPE_COLOR | S_ESCAPE_COLORINDEX | S_ESCAPE_ICON | S_ESCAPE_COMMAND )
+// RAVEN END
+#endif
+
 // make idStr a multiple of 16 bytes long
 // don't make too large to keep memory requirements to a minimum
 const int STR_ALLOC_BASE			= 20;
@@ -189,6 +231,29 @@ public:
 	int					Icmp( const char *text ) const;
 	int					Icmpn( const char *text, int n ) const;
 	int					IcmpPrefix( const char *text ) const;
+#ifdef _RAVEN
+		// RAVEN BEGIN
+  // bdube: changed to escapes
+      int                 IcmpNoEscape( const char *text ) const;
+  // RAVEN END
+  // RAVEN BEGIN 
+// bdube: escape codes
+	static int			IsEscape( const char *s, int* type = NULL );
+  // bdube: escapes 
+	int					IsEscape( int* type = NULL ) const;
+      static int          IcmpNoEscape( const char *s1, const char *s2 );
+
+	static char *		RemoveEscapes( char *s, int escapes = S_ESCAPE_ALL );
+	idStr &				RemoveEscapes ( int escapes = S_ESCAPE_ALL );
+  // RAVEN END
+  //
+	idStr &				ReplaceChar( const char from, const char to );
+#endif
+#ifdef _RAVEN
+	// jmarshall: bot
+	void				StripDoubleQuotes(void);
+#endif
+
 
 						// case insensitive compare ignoring color
 	int					IcmpNoColor( const char *text ) const;
@@ -217,6 +282,14 @@ public:
 	bool				HasUpper( void ) const;
 	int					LengthWithoutColors( void ) const;
 	idStr &				RemoveColors( void );
+#ifdef _RAVEN
+// RAVEN BEGIN
+// abahr
+	void				Split( idList<idStr>& list, const char delimiter = ',', const char groupDelimiter = '\''  ) { Split( c_str(), list, delimiter, groupDelimiter ); }
+	static void			Split( const char* source, idList<idStr>& list, const char delimiter = ',', const char groupDelimiter = '\''  );
+// RAVEN END
+		bool				Filter(const char *filter) const { return Filter(filter, true); }
+#endif
 	void				CapLength( int );
 	void				Fill( const char ch, int newlen );
 
@@ -838,7 +911,12 @@ ID_INLINE void idStr::Insert( const char *text, int index ) {
 
 ID_INLINE void idStr::ToLower( void ) {
 	for (int i = 0; data[i]; i++ ) {
+#ifdef _HUMANHEAD
+        // HUMANHEAD pdm: cast to unsigned for the sake of western european characters, which use the sign bit
+        if ( CharIsUpper( (unsigned char)data[i] ) ) {
+#else
 		if ( CharIsUpper( data[i] ) ) {
+#endif
 			data[i] += ( 'a' - 'A' );
 		}
 	}
@@ -846,7 +924,13 @@ ID_INLINE void idStr::ToLower( void ) {
 
 ID_INLINE void idStr::ToUpper( void ) {
 	for (int i = 0; data[i]; i++ ) {
-		if ( CharIsLower( data[i] ) ) {
+#ifdef _HUMANHEAD
+        // HUMANHEAD pdm: cast to unsigned for the sake of western european characters, which use the sign bit
+        if ( CharIsLower( (unsigned char)data[i] ) )
+#else
+		if (CharIsLower(data[i]))
+#endif
+		{
 			data[i] -= ( 'a' - 'A' );
 		}
 	}
@@ -970,7 +1054,13 @@ ID_INLINE char *idStr::ToLower( char *s ) {
 
 ID_INLINE char *idStr::ToUpper( char *s ) {
 	for ( int i = 0; s[i]; i++ ) {
-		if ( CharIsLower( s[i] ) ) {
+#ifdef _HUMANHEAD
+        // HUMANHEAD pdm: cast to unsigned for the sake of western european characters, which use the sign bit
+        if ( CharIsLower( (unsigned char)s[i] ) )
+#else
+		if (CharIsLower(s[i]))
+#endif
+		{
 			s[i] -= ( 'a' - 'A' );
 		}
 	}
@@ -1078,5 +1168,24 @@ int D3_snprintfC99(char *dst, size_t size, const char *format, ...) id_attribute
 // *would* have been written into a big enough buffer, even if that's > size
 // unlike idStr::vsnPrintf() which returns -1 in that case
 int D3_vsnprintfC99(char *dst, size_t size, const char *format, va_list ap);
+
+#ifdef _RAVEN
+// RAVEN BEGIN
+  // bdube: escapes
+ID_INLINE int idStr::IsEscape( int* type ) const {
+	return idStr::IsEscape( data, type );
+}
+  ID_INLINE int idStr::IcmpNoEscape( const char *text ) const {
+      assert( text );
+      return idStr::IcmpNoEscape( data, text );
+  }
+
+ID_INLINE idStr &idStr::RemoveEscapes ( int escapes ) {
+	idStr::RemoveEscapes( data, escapes );
+	len = Length( c_str() );
+	return *this;
+}
+  // RAVEN END
+#endif
 
 #endif /* !__STR_H__ */

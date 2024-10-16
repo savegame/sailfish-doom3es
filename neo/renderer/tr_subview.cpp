@@ -542,6 +542,117 @@ bool	R_GenerateSurfaceSubview( drawSurf_t *drawSurf ) {
 		return true;
 	}
 
+#ifdef _HUMANHEAD //k: subview
+	switch(shader->GetSubviewClass())
+	{
+		case SC_PORTAL:
+			{
+				if (!drawSurf->space->entityDef->parms.remoteRenderView) {
+					return false;
+				}
+				// if(tr.viewDef->isSubview) return false;
+
+				//k: idMaterial::directPortalDistance may be max distance for render, also see `materials/portals.mtr`.
+				int index = shader->GetDirectPortalDistance();
+				if(index >= 0 && index < EXP_REG_NUM_PREDEFINED)
+				{
+					float maxPortalDistanceLimit = drawSurf->space->entityDef->parms.shaderParms[index];
+					if(maxPortalDistanceLimit > 0.0f && (tr.viewDef->renderView.vieworg - drawSurf->space->entityDef->parms.origin).LengthFast() > maxPortalDistanceLimit) //k: maybe parm == 0
+						return false;
+				}
+
+				// copy the viewport size from the original
+				parms = (viewDef_t *)R_FrameAlloc(sizeof(*parms));
+				if (!parms) {
+					return false;
+				}
+
+				*parms = *tr.viewDef;
+
+				parms->isSubview = true;
+				parms->isMirror = false;
+
+				const renderView_t *remoteRenderView = drawSurf->space->entityDef->parms.remoteRenderView;
+				parms->renderView.viewID = 0;	// clear to allow player bodies to show up, and suppress view weapons
+
+				idVec3 forward, left, up, forward2, left2, up2;
+				idVec3 pos, pos2;
+				const float *dsm = drawSurf->space->modelMatrix;
+				float mm[16] = { //karin: inverse forward and right
+					-dsm[0], -dsm[1], -dsm[2], dsm[3],
+					-dsm[4], -dsm[5], -dsm[6], dsm[7],
+					dsm[8], dsm[9], dsm[10], dsm[11],
+					dsm[12], dsm[13], dsm[14], dsm[15],
+				};
+
+				//k: add a clip plane in remote camera
+				parms->numClipPlanes = 1;
+				parms->clipPlanes[0] = remoteRenderView->viewaxis[0];
+				parms->clipPlanes[0][3] = -(remoteRenderView->vieworg * parms->clipPlanes[0].Normal());
+
+				//k: transform current render view origin and axis to surface model coordonate system
+				R_GlobalVectorToLocal(mm, tr.viewDef->renderView.viewaxis[0], forward);
+				R_GlobalVectorToLocal(mm, tr.viewDef->renderView.viewaxis[1], left);
+				R_GlobalVectorToLocal(mm, tr.viewDef->renderView.viewaxis[2], up);
+				R_GlobalPointToLocal(mm, tr.viewDef->renderView.vieworg, pos);
+
+				//k: transform local origin and axis to remote view coordonate system
+				float mmm[16];
+				R_AxisToModelMatrix(remoteRenderView->viewaxis, remoteRenderView->vieworg, mmm);
+				R_LocalVectorToGlobal(mmm, forward, forward2);
+				R_LocalVectorToGlobal(mmm, left, left2);
+				R_LocalVectorToGlobal(mmm, up, up2);
+				R_LocalPointToGlobal(mmm, pos, pos2);
+
+				//k: setup remote view origin and axis
+				idMat3 hh3(forward2, left2, up2);
+				parms->renderView.viewaxis = hh3;
+				parms->initialViewAreaOrigin = remoteRenderView->vieworg + remoteRenderView->viewaxis[0] * 16; //k: offset TODO how many???, this value will be using find areaNum
+				parms->renderView.vieworg = pos2;
+
+				parms->superView = tr.viewDef;
+				parms->subviewSurface = drawSurf;
+
+				// generate render commands for it
+				R_RenderView(parms);
+				return true;
+			}
+		case SC_PORTAL_SKYBOX:
+			{
+				if (!drawSurf->space->entityDef->parms.remoteRenderView) {
+					return false;
+				}
+
+				//lvonasek: Allow max 1 skybox per frame
+				if(tr.SkyboxRenderedInFrame() || tr.viewDef->isSubview)
+					return false;
+
+				// copy the viewport size from the original
+				parms = (viewDef_t *)R_FrameAlloc(sizeof(*parms));
+				if (!parms) {
+					return false;
+				}
+				tr.RenderSkyboxInFrame();
+				*parms = *tr.viewDef;
+
+				parms->isSubview = true;
+				parms->isMirror = false;
+
+				const renderView_t *remoteRenderView = drawSurf->space->entityDef->parms.remoteRenderView;
+				parms->renderView.viewID = 0;	// clear to allow player bodies to show up, and suppress view weapons
+				parms->initialViewAreaOrigin = remoteRenderView->vieworg;
+				parms->renderView.vieworg = remoteRenderView->vieworg;
+
+				parms->superView = tr.viewDef;
+				parms->subviewSurface = drawSurf;
+
+				// generate render commands for it
+				R_RenderView(parms);
+				return true;
+			}
+		case SC_MIRROR:
+		default: {
+#endif
 	// issue a new view command
 	parms = R_MirrorViewBySurface( drawSurf );
 	if ( !parms ) {
@@ -559,6 +670,10 @@ bool	R_GenerateSurfaceSubview( drawSurf_t *drawSurf ) {
 	R_RenderView( parms );
 
 	return true;
+#ifdef _HUMANHEAD
+				 }
+	}
+#endif
 }
 
 /*

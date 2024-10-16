@@ -135,6 +135,13 @@ void idLangDict::Save( const char *fileName ) {
 			} else if ( ch == '\n' || ch == '\r' ) {
 				outFile->Write( &slash, 1 );
 				outFile->Write( &nl, 1 );
+#ifdef _HUMANHEAD
+			}
+            else if ( ch == slash )
+            {
+                outFile->Write( &slash, 1 );
+                outFile->Write( &slash, 1 );
+#endif
 			} else {
 				outFile->Write( &ch, 1 );
 			}
@@ -160,6 +167,42 @@ const char *idLangDict::GetString( const char *str ) const {
 		return str;
 	}
 
+#ifdef _RAVEN //k: Quake4 internal lang string is 6 digits ID, and startis with 1, e.g. #str_107018
+	idStr nstr(str);
+	const char *ptr = str;
+	bool changed = false;
+	if(nstr.Length() == STRTABLE_ID_LENGTH + 5) // DOOM3 lang key length
+	{
+		nstr = idStr(STRTABLE_ID) + "1" + nstr.Right(5); 
+		ptr = nstr.c_str();
+		changed = true;
+	}
+
+	int hashKey = GetHashKey(ptr);
+
+	for (int i = hash.First(hashKey); i != -1; i = hash.Next(i)) {
+		if (args[i].key.Cmp(ptr) == 0) {
+			return args[i].value;
+		}
+	}
+	// try DOOM3 key
+	if(changed)
+	{
+		hashKey = GetHashKey(ptr);
+
+		for (int i = hash.First(hashKey); i != -1; i = hash.Next(i)) {
+			if (args[i].key.Cmp(str) == 0) {
+				return args[i].value;
+			}
+		}
+	}
+
+	if(changed)
+		idLib::common->Warning("Unknown string id %s(Quake4 string id %s)", str, ptr);
+	else
+		idLib::common->Warning("Unknown string id %s", str);
+	return str;
+#else
 	int hashKey = GetHashKey( str );
 	for ( int i = hash.First( hashKey ); i != -1; i = hash.Next( i ) ) {
 		if ( args[i].key.Cmp( str ) == 0 ) {
@@ -169,6 +212,7 @@ const char *idLangDict::GetString( const char *str ) const {
 
 	idLib::common->Warning( "Unknown string id %s", str );
 	return str;
+#endif
 }
 
 /*
@@ -191,9 +235,14 @@ const char *idLangDict::AddString( const char *str ) {
 
 	int id = GetNextId();
 	idLangKeyValue kv;
+#ifdef _HUMANHEAD
+    //kv.key = va( "#str_%08i", id );
+    kv.key = va( "#str_%05i", id );	// HUMANHEAD pdm: changed back
+#else
 	// _D3XP
 	kv.key = va( "#str_%08i", id );
 	// kv.key = va( "#str_%05i", id );
+#endif
 	kv.value = str;
 	c = args.Append( kv );
 	assert( kv.key.Cmpn( STRTABLE_ID, STRTABLE_ID_LENGTH ) == 0 );

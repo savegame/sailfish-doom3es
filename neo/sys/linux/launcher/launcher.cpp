@@ -52,7 +52,8 @@ public:
         Option,
         Boolean,
         Integer,
-        String
+        String,
+        Cmd
     };
 
     enum OptionValue : int {
@@ -87,6 +88,7 @@ int SettingsValue::last_uid = -1;
 
 class LauncherPrivate {
 public:
+    bool done = false;
     int nativeWidth = 0;
     int nativeHeight = 0;
 
@@ -206,6 +208,27 @@ public:
             newVal->str_value = new idStr;
 
         newVal->type = SettingsValue::Type::String;
+        newVal->name = name;
+        newVal->str_value->operator=(value);
+        if (!description.IsEmpty())
+            newVal->description = description;
+    }
+
+    void set_setting_command(idStr name, idStr value, idStr description = idStr("")) {
+        auto search = std::find_if(settings.begin(), settings.end(), [name](SettingsValue* current){
+            return current->name == name;
+        });
+        SettingsValue *newVal;
+        if (search == settings.end()) {
+            newVal = new SettingsValue;
+            settings.push_back(newVal);
+        } else {
+            newVal = *search;
+        }
+        if (!newVal->str_value)
+            newVal->str_value = new idStr;
+
+        newVal->type = SettingsValue::Type::Cmd;
         newVal->name = name;
         newVal->str_value->operator=(value);
         if (!description.IsEmpty())
@@ -408,7 +431,9 @@ Launcher::Launcher(int argc, char** argv)
     d_ptr->argv.reserve(20);
     // check args 
     for (int i = 1; i < argc; i++) {
-        if (strcmp("fs_basepath", argv[i]) == 0) {
+        if (strcmp("nolauncher", argv[i]) == 0) {
+            d_ptr->done = true;
+        } else if (strcmp("fs_basepath", argv[i]) == 0) {
             d_ptr->no_basepath = false;
             i++;
             fs_basepath_index = i;
@@ -495,7 +520,12 @@ int LauncherPrivate::render_tab0(bool &done)
         fileDialog.Open();
     }
 
-
+#ifdef _HUMANHEAD
+    if (basePath && ImGui::Button("Играть в Prey", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
+        done = true;
+        set_setting_string("fs_game", "");
+    }
+#else
     if (basePath && ImGui::Button("Играть в Doom 3", ImVec2(io.DisplaySize.x - ImGui::GetStyle().WindowPadding.x*2, button_height))) {
         done = true;
         set_setting_string("fs_game", "");
@@ -505,7 +535,7 @@ int LauncherPrivate::render_tab0(bool &done)
         done = true;
         set_setting_string("fs_game", "d3xp");
     }
-    
+#endif
     ImGui::PopFont();
     ImGui::End();
 
@@ -811,7 +841,7 @@ int Launcher::render()
 {
     int result = Launcher::Status::Ok;
     bool show_demo_window = true;
-    bool done = false;
+    bool done = d_ptr->done;
     int finger_id = -1; // use just first finger for ImGui events
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     ImGuiIO& io = ImGui::GetIO();
@@ -915,6 +945,8 @@ int Launcher::render()
     if (d_ptr->settings_changed) {
         d_ptr->save_settings();
     }
+    // d_ptr->set_setting_command("+map","game/roadhouse");
+    // d_ptr->set_setting_command("+give", "all");
     // create args for settings
     for (auto setting : d_ptr->settings) 
     {
@@ -933,6 +965,9 @@ int Launcher::render()
             d_ptr->argv.push_back(d_ptr->get_num(setting->bool_value ? SettingsValue::Enable : SettingsValue::Disable));
         } else if (setting->type == SettingsValue::Type::String) {
             d_ptr->argv.push_back("+set");
+            d_ptr->argv.push_back(setting->name.c_str());
+            d_ptr->argv.push_back(setting->str_value->c_str());
+        } else if (setting->type == SettingsValue::Type::Cmd) {
             d_ptr->argv.push_back(setting->name.c_str());
             d_ptr->argv.push_back(setting->str_value->c_str());
         }

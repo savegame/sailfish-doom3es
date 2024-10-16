@@ -344,7 +344,9 @@ initialize the sound system
 */
 void idSoundSystemLocal::Init() {
 	common->Printf( "----- Initializing OpenAL -----\n" );
-
+#ifdef SAILFISHOS
+	setenv("PULSE_PROP_media.role", "x-maemo", 1);
+#endif
 	isInitialized = false;
 	muted = false;
 	shutdown = false;

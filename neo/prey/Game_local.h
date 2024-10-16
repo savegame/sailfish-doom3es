@@ -12,6 +12,8 @@
 ===============================================================================
 */
 
+#include "Game.h"
+
 #define LAGO_IMG_WIDTH 64
 #define LAGO_IMG_HEIGHT 64
 #define LAGO_WIDTH	64

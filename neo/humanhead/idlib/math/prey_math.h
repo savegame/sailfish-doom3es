@@ -1,8 +1,8 @@
-
 #ifndef __PREY_GAME_MATH_H__
 #define __PREY_GAME_MATH_H__
 
-class idBounds;
+#include "idlib/math/Vector.h"
+#include "idlib/bv/Bounds.h"
 
 //HUMANHEAD rww
 #define	FLOAT_IS_INVALID(x)		(FLOAT_IS_NAN(x) || FLOAT_IS_DENORMAL(x))

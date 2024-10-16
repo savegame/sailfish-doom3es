@@ -45,15 +45,36 @@ class idDeclTable : public idDecl {
 public:
 	virtual size_t			Size( void ) const;
 	virtual const char *	DefaultDefinition( void ) const;
+#ifdef _RAVEN
+		virtual bool			Parse(const char *text, const int textLength, bool noCaching = false);
+#else
 	virtual bool			Parse( const char *text, const int textLength );
+#endif
 	virtual void			FreeData( void );
 
+#ifdef _RAVEN
+			float			GetMaxValue( void ) const { return( maxValue ); }
+			float			GetMinValue( void ) const { return( minValue ); }
+// bdube: made virtual so it can be accessed in game
+	virtual
+#endif
+#ifdef _HUMANHEAD
+		virtual	//HUMANHEAD pdm: made virtual so it can be called from game code
+#endif
 	float					TableLookup( float index ) const;
 
 private:
 	bool					clamp;
 	bool					snap;
 	idList<float>			values;
+
+#ifdef _RAVEN
+// RAVEN BEGIN
+// jscott: for BSE
+	float					minValue;
+	float					maxValue;
+// RAVEN END
+#endif
 };
 
 #endif /* !__DECLTABLE_H__ */

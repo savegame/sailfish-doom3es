@@ -12,20 +12,20 @@
 
 #ifdef GAME_DLL
 
-extern idSys *                   sys;
-extern idCommon *                common;// = NULL;
-extern idCmdSystem *             cmdSystem;
-extern idCVarSystem *            cvarSystem;
-extern idFileSystem *            fileSystem;
-extern idNetworkSystem *         networkSystem;
-extern idRenderSystem *          renderSystem;
-extern idSoundSystem *           soundSystem;
-extern idRenderModelManager *    renderModelManager;
-extern idUserInterfaceManager *  uiManager;
-extern idDeclManager *           declManager;
-idAASFileManager *               AASFileManager = NULL;
-idCollisionModelManager *        collisionModelManager = NULL;
-// extern idCVar *             idCVar::staticVars;
+idSys *                    sys = NULL;
+idCommon *                 common = NULL;
+idCmdSystem *              cmdSystem = NULL;
+idCVarSystem *             cvarSystem = NULL;
+idFileSystem *             fileSystem = NULL;
+idNetworkSystem *          networkSystem = NULL;
+idRenderSystem *           renderSystem = NULL;
+idSoundSystem *            soundSystem = NULL;
+idRenderModelManager *     renderModelManager = NULL;
+idUserInterfaceManager *   uiManager = NULL;
+idDeclManager *            declManager = NULL;
+idAASFileManager *         AASFileManager = NULL;
+idCollisionModelManager *  collisionModelManager = NULL;
+idCVar *                   idCVar::staticVars;
 
 // HUMANHEAD pdm
 #if INGAME_PROFILER_ENABLED
@@ -33,7 +33,7 @@ hhProfiler *				profiler = NULL;
 #endif
 // HUMANHEAD END
 
-extern idCVar com_forceGenericSIMD;//( "com_forceGenericSIMD", "0", CVAR_BOOL|CVAR_SYSTEM, "force generic platform independent SIMD" );
+idCVar com_forceGenericSIMD( "com_forceGenericSIMD", "0", CVAR_BOOL|CVAR_SYSTEM, "force generic platform independent SIMD" );
 idCVar g_printlocations( "g_printlocations", "0", CVAR_BOOL, "print area/location mappings");
 
 #endif
@@ -53,7 +53,7 @@ hhGameLocal					gameLocal;
 //#else
 //idGameLocal					gameLocal;
 //#endif
-idGame *					game = &gameLocal;	// statically pointed at an idGameLocal
+idGame *	game = &gameLocal;	// statically pointed at an idGameLocal
 
 #ifdef HUMANHEAD
 //NOTE: Duplicated in tr_rendertools and CamWnd, make any changes there also

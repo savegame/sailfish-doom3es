@@ -235,6 +235,48 @@ void idAsyncServer::Kill( void ) {
 	session->Stop();
 }
 
+
+#ifdef _RAVEN // mp
+static idStr GetBestMPGametype(const char *map, const char *gametype)
+{
+	// from q4sdk::game/gamesys/SysCvar.cpp
+	const char *si_gameTypeArgs[]		= { "singleplayer", "DM", "Tourney", "Team DM", "CTF", "Arena CTF", "DeadZone", NULL };
+	const int si_numGameTypeArgs = sizeof( si_gameTypeArgs ) / sizeof( si_gameTypeArgs[0] );
+
+	int num = declManager->GetNumDecls(DECL_MAPDEF);
+	int i, j;
+
+	for (i = 0; i < num; i++) {
+		const idDeclEntityDef *mapDef = static_cast<const idDeclEntityDef *>(declManager->DeclByIndex(DECL_MAPDEF, i));
+
+		if (mapDef && idStr::Icmp(mapDef->GetName(), map) == 0) {
+			if (mapDef->dict.GetBool(gametype)) {
+				// dont change gametype
+				return gametype;
+			}
+
+			for (j = 1; si_gameTypeArgs[ j ]; j++) {
+				if (mapDef->dict.GetBool(si_gameTypeArgs[ j ])) {
+					return si_gameTypeArgs[ j ];
+				}
+			}
+
+			// error out, no valid gametype
+			return "DM";
+		}
+	}
+
+	//For testing a new map let it play any gametpye
+	return gametype;
+}
+
+void GetBestGameType(const char *map, const char *gametype, char buf[ MAX_STRING_CHARS ])
+{
+	idStr aux = GetBestMPGametype(map, gametype);
+	strncpy(buf, aux.c_str(), MAX_STRING_CHARS);
+	buf[ MAX_STRING_CHARS - 1 ] = '\0';
+}
+#endif
 /*
 ==================
 idAsyncServer::ExecuteMapChange
@@ -255,7 +297,13 @@ void idAsyncServer::ExecuteMapChange( void ) {
 	fileSystem->ClearPureChecksums();
 
 	// make sure the map/gametype combo is good
+#ifdef _RAVEN
+	GetBestGameType(cvarSystem->GetCVarString("si_map"), cvarSystem->GetCVarString("si_gametype"), bestGameType);
+#elif defined(_HUMANHEAD)
+	game->GetBestGameType(cvarSystem->GetCVarString("si_map"), cvarSystem->GetCVarString("si_gametype"));
+#else
 	game->GetBestGameType( cvarSystem->GetCVarString("si_map"), cvarSystem->GetCVarString("si_gametype"), bestGameType );
+#endif
 	cvarSystem->SetCVarString("si_gametype", bestGameType );
 
 	// initialize map settings
@@ -336,6 +384,16 @@ void idAsyncServer::ExecuteMapChange( void ) {
 			}
 		}
 	}
+
+	// load map
+	// since this is not dependant on si_pure we catch anything bad before loading map
+	// if (sessLocal.mapSpawnData.serverInfo.GetInt("si_pure")) {
+	// 	if (!fileSystem->UpdateGamePakChecksums()) {
+	// 		session->MessageBox(MSG_OK, common->GetLanguageDict()->GetString("#str_04337"), common->GetLanguageDict()->GetString("#str_04338"), true);
+	// 		cmdSystem->BufferCommandText(CMD_EXEC_APPEND, "disconnect\n");
+	// 		return;
+	// 	}
+	// }
 
 	// load map
 	sessLocal.ExecuteMapChange();
@@ -685,7 +743,11 @@ void idAsyncServer::InitClient( int clientNum, int clientId, int clientRate ) {
 	}
 
 	// let the game know a player connected
+#ifdef _HUMANHEAD
+	game->ServerClientConnect(clientNum);
+#else
 	game->ServerClientConnect( clientNum, client.guid );
+#endif
 }
 
 /*
@@ -712,7 +774,11 @@ idAsyncServer::BeginLocalClient
 */
 void idAsyncServer::BeginLocalClient( void ) {
 	game->SetLocalClient( localClientNum );
+#ifdef _RAVEN
+	game->SetUserInfo(localClientNum, sessLocal.mapSpawnData.userInfo[localClientNum], false);
+#else
 	game->SetUserInfo( localClientNum, sessLocal.mapSpawnData.userInfo[localClientNum], false, false );
+#endif
 	game->ServerClientBegin( localClientNum );
 }
 
@@ -884,7 +950,12 @@ void idAsyncServer::SendUserInfoBroadcast( int userInfoNum, const idDict &info, 
 	const idDict	*gameInfo;
 	bool			gameModifiedInfo;
 
+#ifdef _RAVEN
+	gameInfo = game->SetUserInfo(userInfoNum, info, false);
+#else
 	gameInfo = game->SetUserInfo( userInfoNum, info, false, true );
+#endif
+
 	if ( gameInfo ) {
 		gameModifiedInfo = true;
 	} else {
@@ -1142,7 +1213,11 @@ bool idAsyncServer::SendSnapshotToClient( int clientNum ) {
 	idBitMsg	msg;
 	byte		msgBuf[MAX_MESSAGE_SIZE];
 	usercmd_t *	last;
+#ifdef _RAVEN
+	dword		clientInPVS[MAX_ASYNC_CLIENTS >> 3];
+#else
 	byte		clientInPVS[MAX_ASYNC_CLIENTS >> 3];
+#endif
 
 	serverClient_t &client = clients[clientNum];
 
@@ -1168,7 +1243,11 @@ bool idAsyncServer::SendSnapshotToClient( int clientNum ) {
 	msg.WriteShort( idMath::ClampShort( client.clientAheadTime ) );
 
 	// write the game snapshot
+#ifdef _RAVEN
+	game->ServerWriteSnapshot(clientNum, client.snapshotSequence, msg, clientInPVS, MAX_ASYNC_CLIENTS, 0);
+#else
 	game->ServerWriteSnapshot( clientNum, client.snapshotSequence, msg, clientInPVS, MAX_ASYNC_CLIENTS );
+#endif
 
 	// write the latest user commands from the other clients in the PVS to the snapshot
 	for ( last = NULL, i = 0; i < MAX_ASYNC_CLIENTS; i++ ) {
@@ -1558,6 +1637,7 @@ bool idAsyncServer::SendPureServerMessage( const netadr_t to ) {
 	idBitMsg	outMsg;
 	byte		msgBuf[ MAX_MESSAGE_SIZE ];
 	int			serverChecksums[ MAX_PURE_PAKS ];
+	int			gamePakChecksum;
 	int			i;
 
 	fileSystem->GetPureServerChecksums( serverChecksums );
@@ -1766,7 +1846,12 @@ void idAsyncServer::ProcessConnectMessage( const netadr_t from, const idBitMsg &
 	// but meanwhile, the max players may have been reached
 	msg.ReadString( password, sizeof( password ) );
 	char reason[MAX_STRING_CHARS];
+#ifdef _RAVEN
+	allowReply_t reply = game->ServerAllowClient(clientId, numClients, Sys_NetAdrToString(from), guid, password, password, reason);
+#else
 	allowReply_t reply = game->ServerAllowClient( numClients, Sys_NetAdrToString( from ), guid, password, reason );
+#endif
+
 	if ( reply != ALLOW_YES ) {
 		common->DPrintf( "game denied connection for %s\n", Sys_NetAdrToString( from ) );
 
@@ -2442,7 +2527,11 @@ void idAsyncServer::RunFrame( void ) {
 		DuplicateUsercmds( gameFrame, gameTime );
 
 		// advance game
+#ifdef _RAVEN
+		gameReturn_t ret = game->RunFrame(userCmds[gameFrame & (MAX_USERCMD_BACKUP - 1)], 0, true, gameFrame);
+#else
 		gameReturn_t ret = game->RunFrame( userCmds[gameFrame & ( MAX_USERCMD_BACKUP - 1 ) ] );
+#endif
 
 		idAsyncNetwork::ExecuteSessionCommand( ret.sessionCommand );
 

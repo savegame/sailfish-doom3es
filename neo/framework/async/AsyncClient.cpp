@@ -978,7 +978,12 @@ void idAsyncClient::ProcessReliableServerMessages( void ) {
 					cvarSystem->SetCVarsFromDict( info );
 					cvarSystem->ClearModifiedFlags( CVAR_USERINFO ); // don't emit back
 				}
+
+#ifdef _RAVEN
+				game->SetUserInfo(clientNum, info, true);
+#else
 				game->SetUserInfo( clientNum, info, true, false );
+#endif
 				break;
 			}
 			case SERVER_RELIABLE_MESSAGE_SYNCEDCVARS: {
@@ -1035,7 +1040,11 @@ void idAsyncClient::ProcessReliableServerMessages( void ) {
 			}
 			case SERVER_RELIABLE_MESSAGE_ENTERGAME: {
 				SendUserInfoToServer();
+#ifdef _RAVEN
+				game->SetUserInfo(clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true);
+#else
 				game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true, false );
+#endif
 				cvarSystem->ClearModifiedFlags( CVAR_USERINFO );
 				break;
 			}
@@ -1460,6 +1469,10 @@ bool idAsyncClient::ValidatePureServerChecksums( const netadr_t from, const idBi
 
 			return false;
 		}
+		case PURE_NODLL:
+			common->Printf(common->GetLanguageDict()->GetString("#str_07211"), Sys_NetAdrToString(from));
+			cmdSystem->BufferCommandText(CMD_EXEC_NOW, "disconnect");
+			return false;
 		default:
 			break;
 	}
@@ -1834,7 +1847,11 @@ void idAsyncClient::RunFrame( void ) {
 	if ( cvarSystem->GetModifiedFlags() & CVAR_USERINFO ) {
 		game->ThrottleUserInfo( );
 		SendUserInfoToServer( );
+#ifdef _RAVEN
+		game->SetUserInfo(clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true);
+#else
 		game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true, false );
+#endif
 		cvarSystem->ClearModifiedFlags( CVAR_USERINFO );
 	}
 
@@ -1865,7 +1882,11 @@ void idAsyncClient::RunFrame( void ) {
 			bool lastPredictFrame = ( snapshotGameFrame + 1 >= gameFrame && gameTimeResidual + clientPredictTime < USERCMD_MSEC );
 
 			// run client prediction
+#ifdef _HUMANHEAD
+			gameReturn_t ret = game->ClientPrediction(clientNum, userCmds[ snapshotGameFrame & (MAX_USERCMD_BACKUP - 1)]);
+#else
 			gameReturn_t ret = game->ClientPrediction( clientNum, userCmds[ snapshotGameFrame & ( MAX_USERCMD_BACKUP - 1 ) ], lastPredictFrame );
+#endif
 
 			idAsyncNetwork::ExecuteSessionCommand( ret.sessionCommand );
 

@@ -3,14 +3,13 @@ Type=Application
 X-Nemo-Application-Type=no-invoker
 Icon=__APPNAME__
 Exec=/usr/bin/__APPNAME__
-Name=DIII4Aurora
+Name=__GAME_NAME__
 Keywords=doom;first;person;shooter;dark;singleplayer;multiplayer;
 Comment=aurora-doom3es is a Doom 3 GPL source port for AuroraOS based on dhewm 3
-
-X-Desktop-File-Install-Version=0.26
+Categories=Game
 
 [__FIREJAIL__]
 Permissions=UserDirs;RemovableMedia;Internet;Audio
 OrganizationName=ru.sashikknox
-ApplicationName=doom3es
+ApplicationName=__GAME__
 __X_AURORA_APP__

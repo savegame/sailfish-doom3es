@@ -1703,6 +1703,7 @@ void idSessionLocal::LoadLoadingGui( const char *mapName ) {
 			}
 		}
 #elif defined(_HUMANHEAD)
+		guiLoading = uiManager->FindGui("guis/map/loading.gui", true, false, true);
 		// bg image
 		guiLoading->SetStateString("image", idStr("guis/assets/loading/") + stripped + ".tga");
 		// title

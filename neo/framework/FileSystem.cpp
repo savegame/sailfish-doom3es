@@ -263,6 +263,12 @@ typedef struct fileInPack_s {
 } fileInPack_t;
 
 typedef enum {
+	BINARY_UNKNOWN = 0,
+	BINARY_YES,
+	BINARY_NO
+} binaryStatus_t;
+
+typedef enum {
 	PURE_UNKNOWN = 0,	// need to run the pak through GetPackStatus
 	PURE_NEUTRAL,	// neutral regarding pureness. gets in the pure list if referenced
 	PURE_ALWAYS,	// always referenced - for pak* named files, unless NEVER
@@ -389,6 +395,10 @@ public:
 	static void				Path_f( const idCmdArgs &args );
 	static void				TouchFile_f( const idCmdArgs &args );
 	static void				TouchFileList_f( const idCmdArgs &args );
+#ifdef _RAVEN
+		virtual void			SetIsFileLoadingAllowed(bool mode) { (void)mode; }
+		virtual idFile *		GetNewFileMemory( void );
+#endif
 
 private:
 	friend int				BackgroundDownloadThread( void *pexit );
@@ -1732,7 +1742,13 @@ idModList *idFileSystemLocal::ListMods( void ) {
 
 		dirs.Remove( "." );
 		dirs.Remove( ".." );
-		dirs.Remove( "base" );
+#ifdef _RAVEN //karin: base game in mods list
+        dirs.Remove("q4base");
+#elif defined(_HUMANHEAD) //karin: base game in mods list
+		dirs.Remove("base");
+#else
+		dirs.Remove("base");
+#endif
 		dirs.Remove( "pb" );
 
 		// see if there are any pk4 files in each directory
@@ -1777,8 +1793,16 @@ idModList *idFileSystemLocal::ListMods( void ) {
 		}
 	}
 
+#ifdef _RAVEN //karin: base game in mods list
 	list->mods.Insert( "" );
-	list->descriptions.Insert( "dhewm 3" );
+	list->descriptions.Insert("Quake 4");
+#elif defined(_HUMANHEAD) //karin: base game in mods list
+	list->mods.Insert("");
+	list->descriptions.Insert("Prey");
+#else
+	list->mods.Insert("");
+	list->descriptions.Insert("Doom 3");
+#endif
 
 	assert( list->mods.Num() == list->descriptions.Num() );
 
@@ -4028,6 +4052,18 @@ void idFileSystemLocal::FindMapScreenshot( const char *path, char *buf, int len 
 	idFile	*file;
 	idStr	mapname = path;
 
+#ifdef _RAVEN //k: quake4 loading image
+	mapname.StripFileExtension();
+	const char *entityFilter = cvarSystem->GetCVarString("si_entityFilter");
+	idStr bgimg("gfx/guis/loadscreens/generic");
+	// find mapDef
+	const idDeclEntityDef *mapDef = declManager->FindMapDef(mapname, entityFilter);
+	if (mapDef) {
+		bgimg = mapDef->dict.GetString("loadimage", bgimg.c_str());
+	}
+	bgimg.SetFileExtension(".tga");
+	idStr::Copynz(buf, bgimg.c_str(), len);
+#else
 	mapname.StripPath();
 	mapname.StripFileExtension();
 
@@ -4048,4 +4084,16 @@ void idFileSystemLocal::FindMapScreenshot( const char *path, char *buf, int len 
 			idStr::Copynz( buf, "guis/assets/splash/pdtempa", len );
 		}
 	}
+#endif
 }
+
+#ifdef _RAVEN
+idFile * idFileSystemLocal::GetNewFileMemory( void )
+{
+	static idFile_Memory _fileMemory("*raven_getnewfilememory*");
+	_fileMemory.mode |= (1 << FS_READ);
+	_fileMemory.Rewind();
+	_fileMemory.Clear(false);
+	return &_fileMemory;
+}
+#endif

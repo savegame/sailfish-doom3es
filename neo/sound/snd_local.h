@@ -663,7 +663,54 @@ typedef struct {
 	bool			stereo;
 } openalSource_t;
 
-class idSoundSystemLocal : public idSoundSystem {
+#ifdef _RAVEN
+// { 0 Hangar }
+typedef struct rvReverbItem_s
+{
+	int areaNum;
+	idStr efxName;
+} rvReverbItem_t;
+
+//karin: Quake4 no `efx` file for every maps, it only has a `default.efx`, but every maps have `reverb` config file in `maps/<map_name>.reverb`, it has `area` to `efx reverb name`'s map.
+class rvMapReverb
+{
+public:
+	rvMapReverb(void);
+	virtual					~rvMapReverb(void);
+
+	rvReverbItem_t & operator[](int index) {
+		return items[index];
+	}
+
+	int Num() const {
+		return items.Num();
+	}
+
+	const char * GetName() const {
+		return fileName.c_str();
+	}
+
+	bool Append(int area, const char *name, bool over = false);
+	bool LoadFile(const char *fileName, bool OSPath = false );
+	int LoadMap(const char *mapName, const char *filterName = NULL);
+	static idStr GetMapFileName(const char *mapName, const char *filterName = NULL);
+	int GetAreaIndex(int area) const;
+	void UnloadFile(void) { Clear(); }
+	void Clear(void);
+
+private:
+	void Init(void);
+	bool ParseReverb(idLexer &src);
+	bool ParseItem(idLexer &src, rvReverbItem_t &item) const;
+
+private:
+	idList<rvReverbItem_t> items;
+	idStr fileName;
+};
+#endif
+
+class idSoundSystemLocal : public idSoundSystem
+{
 public:
 	idSoundSystemLocal( ) {
 		isInitialized = false;

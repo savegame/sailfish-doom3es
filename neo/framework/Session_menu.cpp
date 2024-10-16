@@ -324,6 +324,9 @@ void idSessionLocal::SetMainMenuGuiVars( void ) {
 	guiMsg->SetStateString( "visible_hasxp", fileSystem->HasD3XP() ? "1" : "0" );
 
 	guiMainMenu->SetStateString( "driver_prompt", "0" );
+#ifdef _HUMANHEAD
+	guiMainMenu->SetStateInt("roadhouseCompleted", cvarSystem->GetCVarInteger("g_roadhouseCompleted"));
+#endif
 
 	SetPbMenuGuiVars();
 }
@@ -409,6 +412,10 @@ bool idSessionLocal::HandleSaveGameMenuCommand( idCmdArgs &args, int &icmd ) {
 
 	if ( !idStr::Icmp( cmd, "updateSaveGameInfo" ) ) {
 		int choice = guiActive->State().GetInt( "loadgame_sel_0" );
+#ifdef _RAVEN
+		guiActive->SetStateInt("loadgame_listdef_count", loadGameList.Num());
+#endif
+
 		if ( choice >= 0 && choice < loadGameList.Num() ) {
 			const idMaterial *material;
 
@@ -505,6 +512,18 @@ void idSessionLocal::HandleRestartMenuCommands( const char *menuCommand ) {
 			}
 			continue;
 		}
+#ifdef _RAVEN //k: disconnect [menu_name [named_event]]
+		if (!idStr::Icmp(cmd, "disconnect")) {
+			idStr disconnectCmdStr("stoprecording ; disconnect");
+			for(int i = 1; i < args.Argc(); i++)
+			{
+				disconnectCmdStr += " ";
+				disconnectCmdStr += args.Argv(i);
+			}
+			cmdSystem->BufferCommandText(CMD_EXEC_INSERT, disconnectCmdStr);
+			continue;
+		}
+#endif
 	}
 }
 
@@ -601,7 +620,9 @@ void idSessionLocal::HandleMainMenuCommands( const char *menuCommand ) {
 
 		// always let the game know the command is being run
 		if ( game ) {
+#if !defined(_HUMANHEAD)
 			game->HandleMainMenuCommands( cmd, guiActive );
+#endif
 		}
 
 		if ( !idStr::Icmp( cmd, "startGame" ) ) {
@@ -609,13 +630,25 @@ void idSessionLocal::HandleMainMenuCommands( const char *menuCommand ) {
 			if ( icmd < args.Argc() ) {
 				StartNewGame( args.Argv( icmd++ ) );
 			} else {
+#ifdef _HUMANHEAD
+				StartNewGame("game/roadhouse");
+#else
+
+#ifndef ID_DEMO_BUILD
 				StartNewGame( "game/mars_city1" );
+#else
+				StartNewGame("game/demo_mars_city1");
+#endif
+
+#endif
 			}
 			// need to do this here to make sure com_frameTime is correct or the gui activates with a time that
 			// is "however long map load took" time in the past
 			common->GUIFrame( false, false );
+#if !defined(_HUMANHEAD)
 			SetGUI( guiIntro, NULL );
 			guiIntro->StateChanged( com_frameTime, true );
+#endif
 			// stop playing the game sounds
 			soundSystem->SetPlayingSoundWorld( menuSoundWorld );
 
@@ -1040,6 +1073,9 @@ void idSessionLocal::HandleMainMenuCommands( const char *menuCommand ) {
 		}
 
 		if ( !idStr::Icmp( cmd, "checkKeys" ) ) {
+#ifdef _HUMANHEAD //k: play main menu music, also see in `guis/mainmenu.gui::Anim_MenuMusic`
+			menuSoundWorld->PlayShaderDirectly("guisounds_menu_music", 2);
+#endif
 #if ID_ENFORCE_KEY
 			// not a strict check so you silently auth in the background without bugging the user
 			if ( !session->CDKeysAreValid( false ) ) {
@@ -1061,6 +1097,114 @@ void idSessionLocal::HandleMainMenuCommands( const char *menuCommand ) {
 			SetPbMenuGuiVars();
 			continue;
 		}
+
+#ifdef _RAVEN //k: quake4 gui cmd
+		/*
+		 * e.g.
+		 set "cmd" "CVarStrcmp sys_lang curr_lang English Spanish French Italian" ;
+		// compare cvar 'sys_lang', store as gui variable 'curr_lang' and compare
+		// against languages. returns index value 0 for English, 1 Spanish, onward.
+		 */ 
+		if (!idStr::Icmp(cmd, "CVarStrcmp")) {
+			idStr cvar = args.Argv(icmd++);
+			idStr cvarVal = cvarSystem->GetCVarString(cvar);
+			idStr guiVar = args.Argv(icmd++);
+			int cmpIndex = -1;
+
+			for(int i = 0; icmd < args.Argc(); i++, icmd++)
+			{
+				if(cmpIndex != -1) // finded
+					continue;
+				idStr cmpTgt = args.Argv(icmd);
+				if(!cmpTgt.Icmp(cvarVal))
+					cmpIndex = i;
+			}
+
+			guiMainMenu->SetStateString(guiVar, va("%d", cmpIndex));
+
+			continue;
+		}
+		if (!idStr::Icmp(cmd, "getMOTD")) {
+			//k: TODO
+			continue;
+		}
+		if (!idStr::Icmp(cmd, "initMPSettings")) {
+			idStr	buildValues, buildNames;
+
+			int numModels = declManager->GetNumDecls( DECL_PLAYER_MODEL );
+			for( int i = 0; i < numModels; i++ ) {
+				const rvDeclPlayerModel* playerModel = (const rvDeclPlayerModel*)declManager->DeclByIndex( DECL_PLAYER_MODEL, i, false );
+
+				if( !playerModel ) {
+					continue;
+				}
+
+				const char *resultValue = playerModel->GetName();
+
+				if ( !resultValue || !resultValue[0] ) {
+					continue;
+				}
+
+				const char *team = playerModel->team.c_str();
+
+				if ( team && team[0] ) {
+					continue; // only non team
+				}
+
+				if ( i ) {
+					buildValues += ";";
+					buildNames += ";";
+				}
+				buildValues += resultValue;
+
+				const char *resultName = common->GetLocalizedString( playerModel->description.c_str() );
+
+				if ( !resultName || !resultName[0] ) {
+					buildNames += resultValue;
+				} else {
+					buildNames += resultName;
+				}
+			}
+
+			guiMainMenu->SetStateString( "model_values", buildValues.c_str() );
+			guiMainMenu->SetStateString( "model_names", buildNames.c_str() );
+			guiMainMenu->SetStateBool( "player_model_updated", true );
+
+			const char *model = cvarSystem->GetCVarString("ui_model");
+			const rvDeclPlayerModel* playerModel = (const rvDeclPlayerModel*)declManager->FindType( DECL_PLAYER_MODEL, model, false );
+			if ( playerModel ) {
+				guiMainMenu->SetStateString( "player_model_name", playerModel->model.c_str() );
+				guiMainMenu->SetStateString( "player_head_model_name", playerModel->uiHead.c_str() );
+				guiMainMenu->SetStateString( "player_skin_name", playerModel->skin.c_str() );
+				if( playerModel->uiHead.Length() ) {
+					const idDeclEntityDef* head = (const idDeclEntityDef*)declManager->FindType( DECL_ENTITYDEF, playerModel->uiHead.c_str(), false );
+					if( head && head->dict.GetString( "skin" ) ) {
+						guiMainMenu->SetStateString( "player_head_skin_name", head->dict.GetString( "skin" ) );
+					}
+				}
+				guiMainMenu->SetStateBool( "need_update", true );
+			}
+			continue;
+		}
+		if (!idStr::Icmp(cmd, "update_model")) {
+			const char *model = cvarSystem->GetCVarString("ui_model");
+			const rvDeclPlayerModel* playerModel = (const rvDeclPlayerModel*)declManager->FindType( DECL_PLAYER_MODEL, model, false );
+			if ( playerModel ) {
+				guiMainMenu->SetStateString( "player_model_name", playerModel->model.c_str() );
+				guiMainMenu->SetStateString( "player_head_model_name", playerModel->uiHead.c_str() );
+				guiMainMenu->SetStateString( "player_skin_name", playerModel->skin.c_str() );
+				if( playerModel->uiHead.Length() ) {
+					const idDeclEntityDef* head = (const idDeclEntityDef*)declManager->FindType( DECL_ENTITYDEF, playerModel->uiHead.c_str(), false );
+					if( head && head->dict.GetString( "skin" ) ) {
+						guiMainMenu->SetStateString( "player_head_skin_name", head->dict.GetString( "skin" ) );
+					}
+				}
+				guiMainMenu->SetStateBool( "need_update", true );
+			}
+			continue;
+		}
+#endif
+
 	}
 }
 
@@ -1148,12 +1292,22 @@ void idSessionLocal::DispatchCommand( idUserInterface *gui, const char *menuComm
 		HandleNoteCommands( menuCommand );
 	} else if ( gui == guiRestartMenu ) {
 		HandleRestartMenuCommands( menuCommand );
+#ifdef _RAVEN
+	} else if (gui == guiLoading) {
+		HandleLoadingCommands(menuCommand);
+#endif
 	} else if ( game && guiActive && guiActive->State().GetBool( "gameDraw" ) ) {
 		const char *cmd = game->HandleGuiCommands( menuCommand );
 		if ( !cmd ) {
 			guiActive = NULL;
+#ifdef _RAVEN //karin: append event name
+		} else if (strstr(cmd, "main ") == cmd) {
+			StartMenu();
+			guiMainMenu->HandleNamedEvent(cmd + 5);
+#else
 		} else if ( idStr::Icmp( cmd, "main" ) == 0 ) {
 			StartMenu();
+#endif
 		} else if ( strstr( cmd, "sound " ) == cmd ) {
 			// pipe the GUI sound commands not handled by the game to the main menu code
 			HandleMainMenuCommands( cmd );
@@ -1519,19 +1673,59 @@ void idSessionLocal::HandleMsgCommands( const char *menuCommand ) {
 		common->DPrintf( "MessageBox HandleMsgCommands 1st frame ignore\n" );
 		return;
 	}
-	if ( idStr::Icmp( menuCommand, "mid" ) == 0 || idStr::Icmp( menuCommand, "left" ) == 0 ) {
+
+#ifdef _RAVEN //karin: Quake4 is left/mid/right OTHER_CMD OTHER_CMD_ARGUMENTS
+	idStr cmd = menuCommand;
+	cmd.ReplaceChar(';', ' ');
+	cmd.StripTrailingWhitespace();
+	idCmdArgs args(cmd, false);
+	const char *menuCommand_new = args.Argv(0);
+	int icmd = 1;
+#endif
+#ifdef _RAVEN
+	if (idStr::Icmp(menuCommand_new, "mid") == 0 || idStr::Icmp(menuCommand_new, "left") == 0)
+#else
+	if (idStr::Icmp(menuCommand, "mid") == 0 || idStr::Icmp(menuCommand, "left") == 0) 
+#endif
+	{
 		guiActive = guiMsgRestore;
 		guiMsgRestore = NULL;
 		msgRunning = false;
 		msgRetIndex = 0;
 		DispatchCommand( guiActive, msgFireBack[ 0 ].c_str() );
-	} else if ( idStr::Icmp( menuCommand, "right" ) == 0 ) {
+	} 
+#ifdef _RAVEN
+	else if (idStr::Icmp(menuCommand_new, "right") == 0) 
+#else
+	else if (idStr::Icmp(menuCommand, "right") == 0) 
+#endif
+	{
 		guiActive = guiMsgRestore;
 		guiMsgRestore = NULL;
 		msgRunning = false;
 		msgRetIndex = 1;
 		DispatchCommand( guiActive, msgFireBack[ 1 ].c_str() );
 	}
+#ifdef _RAVEN
+	else if (idStr::Icmp(menuCommand_new, "play") == 0) 
+	{
+		if (args.Argc() - icmd >= 1) {
+			idStr snd = args.Argv(icmd++);
+			sw->PlayShaderDirectly(snd);
+		}
+	}
+
+	if(icmd < args.Argc())
+	{
+		cmd.Clear();
+		for(int i = icmd; i < args.Argc(); i++)
+		{
+			cmd += args.Argv(i);
+			cmd.Append(' ');
+		}
+		HandleMsgCommands(cmd.c_str());
+	}
+#endif
 }
 
 /*
@@ -1664,3 +1858,87 @@ void idSessionLocal::SetCDKeyGuiVars( void ) {
 	guiMainMenu->SetStateString( "str_d3key_state", common->GetLanguageDict()->GetString( va( "#str_071%d", 86 + cdkey_state ) ) );
 	guiMainMenu->SetStateString( "str_xpkey_state", common->GetLanguageDict()->GetString( va( "#str_071%d", 86 + xpkey_state ) ) );
 }
+
+#ifdef _RAVEN
+/*
+==============
+idSessionLocal::HandleLoadingCommands
+
+Executes any commands returned by the gui
+==============
+*/
+void idSessionLocal::HandleLoadingCommands(const char *menuCommand)
+{
+	// execute the command from the menu
+	int icmd;
+	idCmdArgs args;
+
+	args.TokenizeString(menuCommand, false);
+
+	for (icmd = 0; icmd < args.Argc();) {
+		const char *cmd = args.Argv(icmd++);
+
+		if (!idStr::Icmp(cmd, "unmute")) {
+			//k: TODO all code move to `close` command
+			continue;
+		}
+
+		if (!idStr::Icmp(cmd, "close")) {
+			finishedLoading = false;
+
+			//k: from idSessionLocal::ExecuteMapChange
+			usercmdGen->Clear();
+
+			// start saving commands for possible writeCmdDemo usage
+			logIndex = 0;
+			statIndex = 0;
+			lastSaveIndex = 0;
+
+			// don't bother spinning over all the tics we spent loading
+			lastGameTic = latchedTicNumber = com_ticNumber;
+
+			// remove any prints from the notify lines
+			console->ClearNotifyLines();
+
+			// stop drawing the laoding screen
+			insideExecuteMapChange = false;
+
+			Sys_SetPhysicalWorkMemory(-1, -1);
+
+			// set the game sound world for playback
+			soundSystem->SetPlayingSoundWorld(sw);
+
+			// when loading a save game the sound is paused
+			if (sw->IsPaused()) {
+				// unpause the game sound world
+				sw->UnPause();
+			}
+
+			// restart entity sound playback
+			soundSystem->SetMute(false);
+
+			// we are valid for game draws now
+			mapSpawned = true;
+			Sys_ClearEvents();
+
+			const char *mapName = mapSpawnData.serverInfo.GetString("si_map", mapName);
+			if (!mapSpawnData.serverInfo.GetBool("devmap")) {
+				// Autosave at the beginning of the level
+				SaveGame(GetAutoSaveName(mapName), true);
+			}
+			SetGUI(NULL, NULL);
+			continue;
+		}
+
+		if (!idStr::Icmp(cmd, "play")) {
+			if (args.Argc() - icmd >= 1) {
+				idStr snd = args.Argv(icmd++);
+				sw->PlayShaderDirectly(snd);
+			}
+
+			continue;
+		}
+	}
+}
+
+#endif

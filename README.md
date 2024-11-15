@@ -16,25 +16,30 @@
    ```
    It should list avaliable targets with snapshots (snapshot with *.default* prefix)
    ```sh
-   AuroraOS-5.0.0.60-base-aarch64.default
-   AuroraOS-5.0.0.60-base-aarch64
-   AuroraOS-5.0.0.60-base-armv7hl.default
-   AuroraOS-5.0.0.60-base-armv7hl
-   AuroraOS-5.0.0.60-base-x86_64.default
-   AuroraOS-5.0.0.60-base-x86_64
+   AuroraOS-5.1.1.55-base-aarch64.default
+   AuroraOS-5.1.1.55-base-aarch64
+   AuroraOS-5.1.1.55-base-armv7hl.default
+   AuroraOS-5.1.1.55-base-armv7hl
+   AuroraOS-5.1.1.55-base-x86_64.default
+   AuroraOS-5.1.1.55-base-x86_64
    ```
-   Choose `AuroraOS-5.0.0.60-base-armv7hl` as target.
+   Choose `AuroraOS-5.1.1.55-base-armv7hl` as target.
  - build an RPM
+   - Doom 3
    ```sh
-   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build-init
-   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" prepare
-   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build
-   # run build step twice, because of bug in my cmake project  :-]
-   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.0.0.60-base-armv7hl" build
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" build-init
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" prepare
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" build
+   ```
+   - Prey2006
+   ```sh
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" build-init
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" prepare --define "_game prey"
+   ~/AuroraOS/bin/sfdk -c "target=AuroraOS-5.1.1.55-base-armv7hl" build --define "_game prey"
    ```
  - sign RPM with *developer* key form [Developer.AuroraOS.ru](https://developer.auroraos.ru/doc/software_development/guides/package_signing) ([regular_key.pem](https://developer.auroraos.ru/static/regular_key.pem), [regular_cert.pem](https://developer.auroraos.ru/static/regular_cert.pem))
    ```sh
-   ~/AuroraOS/bin/sfdk engine exec rpm-signexternal sign -c regular_cert.pem -k regular_key.pem RPMS/ru.sashikknox.doom3es-*
+   ~/AuroraOS/bin/sfdk engine exec rpm-signexternal sign -c regular_cert.pem -k regular_key.pem RPMS/ru.sashikknox.*
    ```
 
 # D3ES

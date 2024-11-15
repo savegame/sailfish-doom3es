@@ -122,6 +122,15 @@ const int IMPULSE_30			= 30;			// SnoopJeDi - Toggle Stats Debug
 #endif
 const int IMPULSE_40			= 40;			// use vehicle
 
+#ifdef _HUMANHEAD
+// HUMANHEAD IMPULSES SHOULD START AT 50
+const int IMPULSE_50 = 50;				// Unused
+const int IMPULSE_51 = 51;				// Unused
+const int IMPULSE_52 = 52;				// Unused
+const int IMPULSE_53 = 53;				// Unused
+const int IMPULSE_54 = 54;				// Spirit power toggle
+#endif 
+
 #ifdef _RAVEN // quake4 user cmd
 // RAVEN BEGIN
 // bdube: added flashlight

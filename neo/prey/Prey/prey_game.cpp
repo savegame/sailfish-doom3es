@@ -2,6 +2,11 @@
 #pragma hdrstop
 
 #include "prey_local.h"
+
+#define FIX_FRAMERATE 0
+#if FIX_FRAMERATE
+#include "SDL.h"
+#endif
 //#include "../prey/win32/fxdlg.h"
 
 extern idCVar com_forceGenericSIMD;
@@ -715,11 +720,21 @@ gameReturn_t hhGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 		}
 	} else do {
 		// update the game time
+#if FIX_FRAMERATE
+		time = SDL_GetTicks(); // TODO: made Sys_ avaliable here
+		// if (time - lastFrameIterationTime >= msec) {
+			framenum++;
+			// lastFrameIterationTime = time;
+		// }
+		realClientTime = time;
+		timeRandom = time; //HUMANHEAD rww
+#else
 		framenum++;
 		previousTime = time;
 		time += msec;
 		realClientTime = time;
 		timeRandom = time; //HUMANHEAD rww
+#endif
 
 #ifdef GAME_DLL
 		// allow changing SIMD usage on the fly
@@ -909,6 +924,9 @@ gameReturn_t hhGameLocal::RunFrame( const usercmd_t *clientCmds ) {
 			skipCinematic = false;
 			break;
 		}
+#if FIX_FRAMERATE
+		previousTime = time;
+#endif
 	} while( ( inCinematic || ( time < cinematicStopTime ) ) && skipCinematic );
 
 	ret.syncNextGameFrame = skipCinematic;

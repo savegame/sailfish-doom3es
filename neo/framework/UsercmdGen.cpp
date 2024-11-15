@@ -1138,7 +1138,10 @@ void idUsercmdGenLocal::ImGui( void ) {
 				default: 
 					action = UB_IMPULSE0 + key;
 				}
-#ifndef _HUMANHEAD
+#ifdef _HUMANHEAD
+				if (action > UB_IMPULSE54)
+					action = UB_IMPULSE54;
+#else
 				if (action > UB_IMPULSE40)
 					action = UB_IMPULSE40;
 #endif

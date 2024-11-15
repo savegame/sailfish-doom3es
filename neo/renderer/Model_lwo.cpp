@@ -998,9 +998,15 @@ read requests until flen is reset.
 
 static int flen;
 
-void set_flen( int i ) { flen = i; }
+void set_flen(int i)
+{
+	flen = i;
+}
 
-int get_flen( void ) { return flen; }
+int get_flen(void)
+{
+	return flen;
+}
 
 void *getbytes( idFile *fp, int size )
 {
@@ -2879,9 +2885,15 @@ int lwGetPolygonTags( idFile *fp, int cksize, lwTagList *tlist, lwPolygonList *p
 		if ( rlen < 0 || rlen > cksize ) return 0;
 
 		switch ( type ) {
-			case ID_SURF:  plist->pol[ i ].surf = ( lwSurface * ) j;  break;
-			case ID_PART:  plist->pol[ i ].part = j;  break;
-			case ID_SMGP:  plist->pol[ i ].smoothgrp = j;  break;
+			case ID_SURF:
+				plist->pol[ i ].surf = (lwSurface *) j;
+				break;
+			case ID_PART:
+				plist->pol[ i ].part = j;
+				break;
+			case ID_SMGP:
+				plist->pol[ i ].smoothgrp = j;
+				break;
 		}
 	}
 
@@ -3462,9 +3474,15 @@ lwTexture *lwGetTexture( idFile *fp, int bloksz, unsigned int type )
 
    sz = bloksz - sz - 6;
    switch ( type ) {
-	  case ID_IMAP:  ok = lwGetImageMap( fp, sz, tex );  break;
-	  case ID_PROC:  ok = lwGetProcedural( fp, sz, tex );  break;
-	  case ID_GRAD:  ok = lwGetGradient( fp, sz, tex );  break;
+		case ID_IMAP:
+			ok = lwGetImageMap(fp, sz, tex);
+			break;
+		case ID_PROC:
+			ok = lwGetProcedural(fp, sz, tex);
+			break;
+		case ID_GRAD:
+			ok = lwGetGradient(fp, sz, tex);
+			break;
 	  default:
 		 ok = !fp->Seek( sz, FS_SEEK_CUR );
    }
@@ -3603,17 +3621,38 @@ static int add_texture( lwSurface *surf, lwTexture *tex )
    lwTexture **list;
 
    switch ( tex->chan ) {
-	  case ID_COLR:  list = &surf->color.tex;             break;
-	  case ID_LUMI:  list = &surf->luminosity.tex;        break;
-	  case ID_DIFF:  list = &surf->diffuse.tex;           break;
-	  case ID_SPEC:  list = &surf->specularity.tex;       break;
-	  case ID_GLOS:  list = &surf->glossiness.tex;        break;
-	  case ID_REFL:  list = &surf->reflection.val.tex;    break;
-	  case ID_TRAN:  list = &surf->transparency.val.tex;  break;
-	  case ID_RIND:  list = &surf->eta.tex;               break;
-	  case ID_TRNL:  list = &surf->translucency.tex;      break;
-	  case ID_BUMP:  list = &surf->bump.tex;              break;
-	  default:  return 0;
+		case ID_COLR:
+			list = &surf->color.tex;
+			break;
+		case ID_LUMI:
+			list = &surf->luminosity.tex;
+			break;
+		case ID_DIFF:
+			list = &surf->diffuse.tex;
+			break;
+		case ID_SPEC:
+			list = &surf->specularity.tex;
+			break;
+		case ID_GLOS:
+			list = &surf->glossiness.tex;
+			break;
+		case ID_REFL:
+			list = &surf->reflection.val.tex;
+			break;
+		case ID_TRAN:
+			list = &surf->transparency.val.tex;
+			break;
+		case ID_RIND:
+			list = &surf->eta.tex;
+			break;
+		case ID_TRNL:
+			list = &surf->translucency.tex;
+			break;
+		case ID_BUMP:
+			list = &surf->bump.tex;
+			break;
+		default:
+			return 0;
    }
 
    lwListInsert( (void**)list, tex, (int (__cdecl *)(void *,void *))compare_textures );

@@ -81,6 +81,12 @@ If you have questions concerning this license or the applicable additional terms
 #define PATH_MAX 4096
 #endif
 
+#ifdef _HUMANHEAD
+#define GAME_DIR_NAME "prey"
+#else
+#define GAME_DIR_NAME "doom3es"
+#endif
+
 static char path_argv[PATH_MAX];
 static char path_exe[PATH_MAX];
 static char save_path[PATH_MAX];
@@ -95,9 +101,9 @@ static void SetSavePath()
 	const char* s = getenv("XDG_DATA_HOME");
 #ifdef SAILFISHOS
 	if (s)
-		D3_snprintfC99(save_path, sizeof(save_path), "%s/ru.sashikknox/doom3es", s);
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/ru.sashikknox/" GAME_DIR_NAME, s);
 	else
-		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/ru.sashikknox/doom3es", getenv("HOME"));
+		D3_snprintfC99(save_path, sizeof(save_path), "%s/.local/share/ru.sashikknox/" GAME_DIR_NAME, getenv("HOME"));
 #else
 	if (s)
 		D3_snprintfC99(save_path, sizeof(save_path), "%s/dhewm3", s);
@@ -255,17 +261,9 @@ bool Sys_GetPath(sysPath_t type, idStr &path) {
 		s = getenv("XDG_CONFIG_HOME");
 #ifdef SAILFISHOS
 		if (s)
-#	ifdef _HUMANHEAD
-			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/prey", s);
-#	else
-			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/doom3es", s);
-#	endif
-		else // TODO: should be orgname plus appname ru.sashikknox/doom3es
-#	ifdef _HUMANHEAD
-			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/prey", getenv("HOME"));
-#	else
-			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/doom3es", getenv("HOME"));
-#	endif
+			idStr::snPrintf(buf, sizeof(buf), "%s/ru.sashikknox/" GAME_DIR_NAME, s);
+		else
+			idStr::snPrintf(buf, sizeof(buf), "%s/.config/ru.sashikknox/" GAME_DIR_NAME, getenv("HOME"));
 #else
 		if (s)
 			idStr::snPrintf(buf, sizeof(buf), "%s/dhewm3", s);

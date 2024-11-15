@@ -5,6 +5,7 @@
 #pragma hdrstop
 
 #include "Game_local.h"
+#include <SDL.h>
 //HUMANHEAD: aob
 #include "Prey/prey_local.h"
 //k: #include "../framework/BuildVersion.h" // HUMANHEAD mdl
@@ -215,8 +216,10 @@ void idGameLocal::Clear( void ) {
 	cinematicStopTime = 0;
 	cinematicMaxSkipTime = 0;
 	framenum = 0;
-	previousTime = 0;
-	time = 0;
+	time = SDL_GetTicks();
+	previousTime = SDL_GetTicks();
+	// time = 0;
+	// previousTime = 0;
 	vacuumAreaNum = 0;
 	mapFileName.Clear();
 	mapFile = NULL;

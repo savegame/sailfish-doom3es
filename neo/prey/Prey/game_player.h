@@ -13,12 +13,13 @@ extern const idEventDef EV_StartHudTranslation;
 extern const idEventDef EV_StopSpiritWalk; //rww
 extern const idEventDef EV_DamagePlayer; //rww
 
-// HUMANHEAD IMPULSES SHOULD START AT 50
-const int IMPULSE_50 = 50;				// Unused
-const int IMPULSE_51 = 51;				// Unused
-const int IMPULSE_52 = 52;				// Unused
-const int IMPULSE_53 = 53;				// Unused
-const int IMPULSE_54 = 54;				// Spirit power toggle
+// // HUMANHEAD IMPULSES SHOULD START AT 50
+// sashikknox: redefined in UsercmdGen.h
+// const int IMPULSE_50 = 50;				// Unused
+// const int IMPULSE_51 = 51;				// Unused
+// const int IMPULSE_52 = 52;				// Unused
+// const int IMPULSE_53 = 53;				// Unused
+// const int IMPULSE_54 = 54;				// Spirit power toggle
 
 //Declared in idPlayer.cpp
 extern const int RAGDOLL_DEATH_TIME;

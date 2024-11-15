@@ -246,6 +246,9 @@ idUserInterfaceLocal::idUserInterfaceLocal() {
 	//so the reg eval in gui parsing doesn't get bogus values
 	time = 0;
 	refs = 1;
+#ifdef _HUMANHEAD
+	translateFont = -1;
+#endif
 }
 
 idUserInterfaceLocal::~idUserInterfaceLocal() {

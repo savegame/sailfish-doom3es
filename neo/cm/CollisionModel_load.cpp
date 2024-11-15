@@ -3988,10 +3988,6 @@ cmHandle_t idCollisionModelManagerLocal::LoadModel(const char *modelName, const 
 		return 0;
 	}
 
-#ifdef SAILFISHOS
-	if (!models)
-		models = (cm_model_t **) Mem_ClearedAlloc( (maxModels+1) * sizeof(cm_model_t *) );
-#endif
 	// try to load a .ASE or .LWO model and convert it to a collision model
 	models[numModels] = LoadRenderModel( modelName );
 	if ( models[numModels] != NULL ) {

@@ -1045,7 +1045,13 @@ ID_INLINE int idStr::Length( const char *s ) {
 
 ID_INLINE char *idStr::ToLower( char *s ) {
 	for ( int i = 0; s[i]; i++ ) {
-		if ( CharIsUpper( s[i] ) ) {
+#ifdef _HUMANHEAD
+        // HUMANHEAD pdm: cast to unsigned for the sake of western european characters, which use the sign bit
+        if ( CharIsUpper( (unsigned char)s[i] ) )
+#else
+		if (CharIsUpper(s[i]))
+#endif
+		{
 			s[i] += ( 'a' - 'A' );
 		}
 	}

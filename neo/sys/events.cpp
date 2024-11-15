@@ -686,7 +686,13 @@ void Sys_InitInput() {
 		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
 		if (ev.type == SDL_FINGERMOTION) // use mouse motion
 			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
-		imgui_polls.Append(mouse_poll_t(IMPULSE_11, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		imgui_polls.Append(mouse_poll_t(
+#ifdef _HUMANHEAD
+			IMPULSE_16,
+#else
+			IMPULSE_11,
+#endif
+			 ev.type == SDL_FINGERDOWN ? 1 : 0));
 		return default_res_none;
 	});
 
@@ -713,12 +719,23 @@ void Sys_InitInput() {
 		imgui_polls.Append(mouse_poll_t(IMPULSE_13, ev.type == SDL_FINGERDOWN ? 1 : 0));
 		return default_res_none;
 	});
-
+	// Spirit mode for Prey
 	touch_fingers[TouchItem_PDA].handler = std::function<sysEvent_t(const ImVec2 &, const ImVec2 &, SDL_Event &)>(
 		[](const ImVec2 &current_pos, const ImVec2 &relative_pos, SDL_Event &ev)->sysEvent_t{
 		if (ev.type == SDL_FINGERMOTION) // use mouse motion
 			return touch_fingers[TouchItem_RightSide].handler(current_pos, relative_pos, ev);
-		imgui_polls.Append(mouse_poll_t(IMPULSE_19, ev.type == SDL_FINGERDOWN ? 1 : 0));
+		
+#ifdef _HUMANHEAD
+		common->Printf("Enable Spirit mode!\n");
+#endif 
+		imgui_polls.Append(mouse_poll_t(
+#ifdef _HUMANHEAD
+			// IMPULSE_25, // -- granade
+			IMPULSE_54, // -- spirit
+#else
+			IMPULSE_19,
+#endif
+			 ev.type == SDL_FINGERDOWN ? 1 : 0));
 		return default_res_none;
 	});
 
@@ -1533,11 +1550,7 @@ static void handleMouseGrab() {
 
 		if ( menuActive ) {
 			showCursor = false;
-#if 1 //k
-			relativeMouse = !console->Active();
-#else
 			relativeMouse = false;
-#endif
 			grabMouse = false; // TODO: or still grab to window? (maybe only if in exclusive fullscreen mode?)
 		} else if ( console->Active() ) {
 			showCursor = true;

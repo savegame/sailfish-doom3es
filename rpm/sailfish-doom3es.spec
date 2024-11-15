@@ -20,18 +20,6 @@ Summary: Doom3 AuroraOS port by sashikknox
 %define firejail_section X-Application
 %define xauroraapp ""
 
-# %define build_dir $RPM_BUILD_ROOT/build
-# 
-# %ifarch armv7hl
-# %global build_dir build_armv7hl%{dir_suffix}
-# %else 
-#     %ifarch aarch64
-#         %global build_dir build_aarch64%{dir_suffix}
-#     %else
-#         %global build_dir build_x86_64%{dir_suffix}
-#     %endif
-# %endif
-
 %define __requires_exclude ^libopenal\\.so.*$
 %define __provides_exclude_from ^%{_datadir}/%{name}/lib/.*\\.so.*$
 
@@ -78,22 +66,22 @@ sed -i "s/__GAME_NAME__/%{_GAMENAME}/g" %{name}.desktop
 sed -i "s/#/\n/g" %{name}.desktop
 # << build pre
 
-# % cmake \
-#     -Bbuild_libsdl_%{_arch} \
-#     -DSDL_PULSEAUDIO=OFF \
-#     -DSDL_RPATH=OFF \
-#     -DSDL_STATIC=ON \
-#     -DSDL_SHARED=OFF \
-#     -DSDL_WAYLAND=ON \
-#     -DSDL_X11=OFF \
-#     -DSDL_DBUS=ON \
-#     -DSDL_WAYLAND_LIBDECOR=OFF \
-#     libsdl
-# 
-# pushd build_libsdl_%{_arch}
-# % make_build -j`nproc`
-# rsync -avP include-config-/SDL2/* include/SDL2/
-# popd
+%cmake \
+    -Bbuild_libsdl_%{_arch} \
+    -DSDL_PULSEAUDIO=OFF \
+    -DSDL_RPATH=OFF \
+    -DSDL_STATIC=ON \
+    -DSDL_SHARED=OFF \
+    -DSDL_WAYLAND=ON \
+    -DSDL_X11=OFF \
+    -DSDL_DBUS=ON \
+    -DSDL_WAYLAND_LIBDECOR=OFF \
+    libsdl
+
+pushd build_libsdl_%{_arch}
+%make_build -j`nproc`
+rsync -avP include-config-/SDL2/* include/SDL2/
+popd
 
 %cmake \
     -Bbuild_%{_arch}%{dir_suffix} \
@@ -105,7 +93,8 @@ sed -i "s/#/\n/g" %{name}.desktop
     %{build_options} .
 
 pushd build_%{_arch}%{dir_suffix}
-%make_build 
+# %make_build 
+make -j1
 strip neo/base.so
 [ -f neo/d3xp.so ] && strip neo/d3xp.so
 strip neo/%{name}

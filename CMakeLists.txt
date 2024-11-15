@@ -20,6 +20,12 @@ set(DHEWM3BINARY ${SFOS_PACKAGE_NAME})
 add_subdirectory(${CMAKE_SOURCE_DIR}/neo)
 
 if(SAILFISHOS)
+    if(${SFOS_PACKAGE_NAME} STREQUAL "ru.sashikknox.prey")
+        set(ICONS_DIR "prey/")
+    else()
+        set(ICONS_DIR "")
+    endif()
+    
     # AuroraOS/SailfishOS specific files and resources
     add_custom_target(distfiles
         SOURCES
@@ -28,22 +34,26 @@ if(SAILFISHOS)
             icons/108.png
             icons/128.png
             icons/172.png
+            icons/prey/86.png
+            icons/prey/108.png
+            icons/prey/128.png
+            icons/prey/172.png
             sailfish-doom3es.desktop.in
         )
 
     install(FILES ${SFOS_PACKAGE_NAME}.desktop
         DESTINATION /usr/share/applications
     )
-    install(FILES icons/86.png
+    install(FILES icons/${ICONS_DIR}86.png
         DESTINATION /usr/share/icons/hicolor/86x86/apps RENAME ${SFOS_PACKAGE_NAME}.png
     )
-    install(FILES icons/108.png
+    install(FILES icons/${ICONS_DIR}108.png
         DESTINATION /usr/share/icons/hicolor/108x108/apps RENAME ${SFOS_PACKAGE_NAME}.png
     )
-    install(FILES icons/128.png
+    install(FILES icons/${ICONS_DIR}128.png
         DESTINATION /usr/share/icons/hicolor/128x128/apps RENAME ${SFOS_PACKAGE_NAME}.png
     )
-    install(FILES icons/172.png
+    install(FILES icons/${ICONS_DIR}172.png
         DESTINATION /usr/share/icons/hicolor/172x172/apps RENAME ${SFOS_PACKAGE_NAME}.png
     )
     install(DIRECTORY res

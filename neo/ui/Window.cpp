@@ -1466,10 +1466,16 @@ void idWindow::Redraw(float x, float y) {
 	}
 
 	if ( r_skipGuiShaders.GetInteger() < 5 ) {
+#ifdef _HUMANHEAD //k: for hide first level intro text
+	if(foreColor.w() > 0.0 || backColor.w() > 0.0)
+#endif
 		Draw(time, x, y);
 	}
 
 	if ( gui_debug.GetInteger() ) {
+#ifdef _HUMANHEAD //k: for hide first level intro text
+	if(foreColor.w() > 0.0 || backColor.w() > 0.0)
+#endif
 		DebugDraw(time, x, y);
 	}
 

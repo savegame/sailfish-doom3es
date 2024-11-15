@@ -42,7 +42,11 @@ If you have questions concerning this license or the applicable additional terms
 #define CM_MAX_POLYGON_EDGES				64
 #define CIRCLE_APPROXIMATION_LENGTH			64.0f
 
+#ifdef _RAVEN
+#define	MAX_SUBMODELS						4096 //k: include trace models
+#else
 #define	MAX_SUBMODELS						2048
+#endif
 #define	TRACE_MODEL_HANDLE					MAX_SUBMODELS
 
 #define VERTEX_HASH_BOXSIZE					(1<<6)	// must be power of 2
@@ -160,7 +164,12 @@ typedef struct cm_nodeBlock_s {
 	struct cm_nodeBlock_s *next;				// next block with nodes
 } cm_nodeBlock_t;
 
-typedef struct cm_model_s {
+#ifdef _RAVEN
+struct cm_model_t : public idCollisionModel
+#else
+typedef struct cm_model_s 
+#endif
+{
 	idStr					name;				// model name
 	idBounds				bounds;				// model bounds
 	int						contents;			// all contents of the model ored together
@@ -405,12 +414,12 @@ public:
 		void			ModelInfo(int num);
 #else
 	void			ModelInfo( cmHandle_t model );
-	// list all loaded models
+#endif
 		// list all loaded models
 	void			ListModels( void );
 	// write a collision model file for the map entity
 	bool			WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
-
+#ifdef _HUMANHEAD
 	//HUMANHEAD rww
 #if _HH_INLINED_PROC_CLIPMODELS
 	int				GetNumInlinedProcClipModels(void);
@@ -490,6 +499,7 @@ private:			// CollisionMap_load.cpp
 	void			FreeModel_memory(cm_model_t *model);
 #else
 	void			FreeModel( cm_model_t *model );
+#endif
 					// merging polygons
 	void			ReplacePolygons( cm_model_t *model, cm_node_t *node, cm_polygon_t *p1, cm_polygon_t *p2, cm_polygon_t *newp );
 	cm_polygon_t *	TryMergePolygons( cm_model_t *model, cm_polygon_t *p1, cm_polygon_t *p2 );
@@ -589,7 +599,7 @@ public:
 #endif
 	void			DrawNodePolygons( cm_model_t *model, cm_node_t *node, const idVec3 &origin, const idMat3 &axis,
 								const idVec3 &viewOrigin, const float radius );
-
+#ifdef _RAVEN // quake4 cm file
 private:			// collision map data
 	//k v3 .cm file parse
 	bool			ParseCollisionModel_v3(idLexer *src);

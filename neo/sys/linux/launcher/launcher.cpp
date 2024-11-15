@@ -30,6 +30,12 @@
 #define Intent_Hints ""
 #define Intent_IntentMethod "OpenURI"
 
+#ifdef _HUMANHEAD
+#define GAME_NAME "prey"
+#else
+#define GAME_NAME "doom3es"
+#endif
+
 class idStr_ : public idStr {
 public:
 
@@ -384,7 +390,7 @@ Launcher::Launcher(int argc, char** argv)
     #endif
     d_ptr->native_landscape = d_ptr->nativeWidth > d_ptr->nativeHeight;
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    d_ptr->window = SDL_CreateWindow("ru.sashikknox.doom3es", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, d_ptr->nativeWidth, d_ptr->nativeHeight, window_flags);
+    d_ptr->window = SDL_CreateWindow("ru.sashikknox." GAME_NAME, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, d_ptr->nativeWidth, d_ptr->nativeHeight, window_flags);
     d_ptr->gl_context = SDL_GL_CreateContext(d_ptr->window);
     SDL_GL_MakeCurrent(d_ptr->window, d_ptr->gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
